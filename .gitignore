@@ -1,0 +1,45 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Android
+Test/android/.gradle/
+Test/android/app/build/
+Test/android/local.properties
+Test/android/.settings/
+
+# iOS
+Test/ios/Pods/
+Test/ios/.symlinks/
+Test/ios/Flutter/Flutter.framework
+Test/ios/Flutter/Flutter.podspec
+
+# Web
+Test/web/favicon.png
+Test/web/icons/
+
+# API build artifacts
+TestAPI/bin/
+TestAPI/obj/
+
+# Misc
+*.log
+bcd.txt
+driver_result.txt
+hv_status.txt
+hyper_check.txt
+install_log*.txt
+pnp.txt
+sc_check.txt
+sc_query.txt
+sc_start.txt
+svc2.txt
+svc_check.txt

@@ -10,6 +10,17 @@ String get apiBaseUrl {
   return 'http://localhost:5148';
 }
 
+class Responsive {
+  static bool isMobile(BuildContext context) => MediaQuery.sizeOf(context).width < 600;
+  static bool isTablet(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    return w >= 600 && w < 1024;
+  }
+  static bool isDesktop(BuildContext context) => MediaQuery.sizeOf(context).width >= 1024;
+  static double width(BuildContext context) => MediaQuery.sizeOf(context).width;
+  static double height(BuildContext context) => MediaQuery.sizeOf(context).height;
+}
+
 void main() {
   runApp(const MyApp());
 }
@@ -20,9 +31,45 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Test',
+      title: 'Product Manager',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1565C0),
+          brightness: Brightness.light,
+        ),
+        useMaterial3: true,
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
       ),
       home: const MDIHomePage(),
     );
@@ -39,9 +86,9 @@ class MDIHomePage extends StatefulWidget {
 class _MDIHomePageState extends State<MDIHomePage> {
   final List<_MDIWindow> _windows = [];
   int _windowIdCounter = 0;
-  double _menuWidth = 200;
+  double _menuWidth = 240;
   bool _isMenuVisible = true;
-  double _previousMenuWidth = 200;
+  double _previousMenuWidth = 240;
 
   void _toggleMenu() {
     setState(() {
@@ -57,10 +104,11 @@ class _MDIHomePageState extends State<MDIHomePage> {
 
   void _addWindow(String title, {Widget? child}) {
     setState(() {
+      _windows.removeWhere((w) => w.title == title);
       _windows.add(_MDIWindow(
         id: _windowIdCounter++,
         title: title,
-        offset: Offset.zero,
+        offset: Offset(20 + (_windows.length * 20).toDouble(), 20 + (_windows.length * 20).toDouble()),
         child: child,
         maximized: true,
         minimized: false,
@@ -106,162 +154,227 @@ class _MDIHomePageState extends State<MDIHomePage> {
     });
   }
 
+  Widget _buildSidebar() {
+    return Sidebar(
+      onMenuTap: (title, {child}) {
+        _addWindow(title, child: child);
+        if (Responsive.isMobile(context)) {
+          Navigator.of(context).pop();
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleWindows = _windows.where((w) => !w.minimized).toList();
     final minimizedWindows = _windows.where((w) => w.minimized).toList();
+    final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        leading: IconButton(
-          icon: Icon(_isMenuVisible ? Icons.menu_open : Icons.menu),
-          onPressed: _toggleMenu,
-          tooltip: _isMenuVisible ? 'Hide Menu' : 'Show Menu',
+        backgroundColor: const Color(0xFF1565C0),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: isMobile
+            ? Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  tooltip: 'Menu',
+                ),
+              )
+            : IconButton(
+                icon: Icon(_isMenuVisible ? Icons.menu_open : Icons.menu),
+                onPressed: _toggleMenu,
+                tooltip: _isMenuVisible ? 'Hide Menu' : 'Show Menu',
+              ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.inventory_2, size: 24),
+            SizedBox(width: 10),
+            Text(
+              'Product Manager',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+            ),
+          ],
         ),
-        title: const Text('MDI Test'),
-        actions: minimizedWindows.isNotEmpty
-            ? [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: minimizedWindows.map((win) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: GestureDetector(
-                          onTap: () => _restoreWindow(win.id),
-                          child: Tooltip(
-                            message: win.title,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.open_in_new, size: 16, color: Colors.white),
-                                  const SizedBox(width: 4),
-                                  Text(win.title, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                                ],
-                              ),
+        actions: [
+          if (minimizedWindows.isNotEmpty)
+            ...minimizedWindows.map((win) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    onTap: () => _restoreWindow(win.id),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Tooltip(
+                      message: win.title,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.open_in_new, size: 14, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text(
+                              win.title,
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          const SizedBox(width: 8),
+        ],
+      ),
+      drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
+      body: isMobile
+          ? _buildMobileBody(visibleWindows)
+          : _buildDesktopBody(visibleWindows),
+    );
+  }
+
+  Widget _buildMobileBody(List<_MDIWindow> visibleWindows) {
+    if (visibleWindows.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.dashboard_outlined, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              'Tap the menu to get started',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final win = visibleWindows.last;
+    return ClipRect(
+      child: MDIWindowWidget(
+        title: win.title,
+        maximized: true,
+        onClose: () => _closeWindow(win.id),
+        onMaximize: () => _toggleMaximize(win.id),
+        onMinimize: () => _minimizeWindow(win.id),
+        child: win.child,
+      ),
+    );
+  }
+
+  Widget _buildDesktopBody(List<_MDIWindow> visibleWindows) {
+    return Row(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: _isMenuVisible ? _menuWidth : 0,
+          clipBehavior: Clip.hardEdge,
+          decoration: const BoxDecoration(),
+          child: _buildSidebar(),
+        ),
+        if (_isMenuVisible)
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeLeftRight,
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _menuWidth = (_menuWidth + details.delta.dx).clamp(180.0, 400.0);
+                  _previousMenuWidth = _menuWidth;
+                });
+              },
+              child: Container(
+                width: 1,
+                color: Colors.grey.shade300,
+              ),
+            ),
+          ),
+        Expanded(
+          child: ClipRect(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (visibleWindows.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.dashboard_outlined, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Select a module from the sidebar',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return Stack(
+                  children: visibleWindows.map((win) {
+                    if (win.maximized) {
+                      return Positioned.fill(
+                        child: GestureDetector(
+                          onTap: () => _bringToFront(win.id),
+                          child: MDIWindowWidget(
+                            title: win.title,
+                            maximized: true,
+                            onClose: () => _closeWindow(win.id),
+                            onMaximize: () => _toggleMaximize(win.id),
+                            onMinimize: () => _minimizeWindow(win.id),
+                            child: win.child,
                           ),
                         ),
                       );
-                    }).toList(),
-                  ),
-                ),
-              ]
-            : [],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                if (_isMenuVisible)
-                  SizedBox(
-                    width: _menuWidth,
-                    child: Material(
-                      color: Colors.grey[200],
-                      child: ListView(
-                        padding: const EdgeInsets.all(8),
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 8),
-                            child: Text(
-                              'Menu',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.article),
-                            title: const Text('test'),
-                            onTap: () => _addWindow('test'),
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.article),
-                            title: const Text('test1'),
-                            onTap: () => _addWindow('test1'),
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.inventory),
-                            title: const Text('Products'),
-                            onTap: () => _addWindow('Products', child: const ProductListWidget()),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (_isMenuVisible)
-                  MouseRegion(
-                    cursor: SystemMouseCursors.resizeLeftRight,
-                    child: GestureDetector(
-                      onHorizontalDragUpdate: (details) {
-                        setState(() {
-                          _menuWidth = (_menuWidth + details.delta.dx).clamp(100.0, 500.0);
-                          _previousMenuWidth = _menuWidth;
-                        });
-                      },
-                      child: Container(
-                        width: 6,
-                        color: Colors.grey[400],
-                      ),
-                    ),
-                  ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return Stack(
-                        children: visibleWindows.map((win) {
-                          if (win.maximized) {
-                            return Positioned.fill(
-                              child: GestureDetector(
-                                onTap: () => _bringToFront(win.id),
-                                child: MDIWindowWidget(
-                                  title: win.title,
-                                  maximized: true,
-                                  onClose: () => _closeWindow(win.id),
-                                  onMaximize: () => _toggleMaximize(win.id),
-                                  onMinimize: () => _minimizeWindow(win.id),
-                                  child: win.child,
-                                ),
-                              ),
+                    }
+                    return Positioned(
+                      left: win.offset.dx.clamp(0.0, constraints.maxWidth - 100),
+                      top: win.offset.dy.clamp(0.0, constraints.maxHeight - 50),
+                      child: GestureDetector(
+                        onPanUpdate: (details) {
+                          setState(() {
+                            win.offset = Offset(
+                              (win.offset.dx + details.delta.dx).clamp(0.0, constraints.maxWidth - 100),
+                              (win.offset.dy + details.delta.dy).clamp(0.0, constraints.maxHeight - 50),
                             );
-                          }
-                          return Positioned(
-                            left: win.offset.dx,
-                            top: win.offset.dy,
-                            child: GestureDetector(
-                              onPanUpdate: (details) {
-                                setState(() {
-                                  win.offset += details.delta;
-                                });
-                              },
-                              onTap: () => _bringToFront(win.id),
-                              child: MDIWindowWidget(
-                                title: win.title,
-                                maximized: false,
-                                onClose: () => _closeWindow(win.id),
-                                onMaximize: () => _toggleMaximize(win.id),
-                                onMinimize: () => _minimizeWindow(win.id),
-                                child: win.child,
-                              ),
-                            ),
-                          );
-                        }                        ).toList(),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                          });
+                        },
+                        onTap: () => _bringToFront(win.id),
+                        child: MDIWindowWidget(
+                          title: win.title,
+                          maximized: false,
+                          width: win.width.clamp(350.0, constraints.maxWidth),
+                          height: win.height.clamp(250.0, constraints.maxHeight),
+                          onClose: () => _closeWindow(win.id),
+                          onMaximize: () => _toggleMaximize(win.id),
+                          onMinimize: () => _minimizeWindow(win.id),
+                          onResize: (newSize) {
+                            setState(() {
+                              win.width = newSize.width;
+                              win.height = newSize.height;
+                            });
+                          },
+                          child: win.child,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -271,6 +384,8 @@ class _MDIWindow {
   final String title;
   final Widget? child;
   Offset offset;
+  double width;
+  double height;
   bool maximized;
   bool minimized;
 
@@ -281,15 +396,19 @@ class _MDIWindow {
     this.child,
     this.maximized = true,
     this.minimized = false,
-  });
+  })  : width = 700,
+        height = 500;
 }
 
 class MDIWindowWidget extends StatelessWidget {
   final String title;
   final bool maximized;
+  final double width;
+  final double height;
   final VoidCallback onClose;
   final VoidCallback onMaximize;
   final VoidCallback onMinimize;
+  final ValueChanged<Size>? onResize;
   final Widget? child;
 
   const MDIWindowWidget({
@@ -299,68 +418,362 @@ class MDIWindowWidget extends StatelessWidget {
     required this.onClose,
     required this.onMaximize,
     required this.onMinimize,
+    this.onResize,
+    this.width = 700,
+    this.height = 500,
     this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      elevation: 8,
-      borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(8),
-      child: Container(
-        width: maximized ? double.infinity : 400,
-        height: maximized ? double.infinity : 300,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(8),
-          border: maximized ? null : Border.all(color: Colors.grey[400]!),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return SizedBox(
+      width: maximized ? double.infinity : width,
+      height: maximized ? double.infinity : height,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Material(
+            elevation: maximized ? 0 : 12,
+            borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: maximized
-                    ? BorderRadius.zero
-                    : const BorderRadius.vertical(top: Radius.circular(8)),
+                color: Colors.white,
+                borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(12),
               ),
-              child: Row(
+              child: Column(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0),
+                      borderRadius: maximized
+                          ? BorderRadius.zero
+                          : const BorderRadius.vertical(top: Radius.circular(12)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.tab, color: Colors.white70, size: 16),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            title,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _WindowButton(
+                          icon: Icons.minimize,
+                          onTap: onMinimize,
+                          tooltip: 'Minimize',
+                        ),
+                        _WindowButton(
+                          icon: maximized ? Icons.filter_none : Icons.crop_square,
+                          onTap: onMaximize,
+                          tooltip: maximized ? 'Restore' : 'Maximize',
+                        ),
+                        _WindowButton(
+                          icon: Icons.close,
+                          onTap: onClose,
+                          tooltip: 'Close',
+                          isClose: true,
+                        ),
+                      ],
+                    ),
+                  ),
                   Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
+                    child: child ?? Center(
+                      child: Text(
+                        'Content of $title',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                      ),
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: onMinimize,
-                    child: const Icon(Icons.minimize, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: onMaximize,
-                    child: Icon(
-                      maximized ? Icons.filter_none : Icons.crop_square,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: onClose,
-                    child: const Icon(Icons.close, color: Colors.white, size: 20),
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: child ?? Center(
-                child: Text('Content of $title', style: const TextStyle(fontSize: 16)),
+          ),
+          if (!maximized && onResize != null) ..._buildResizeHandles(),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildResizeHandles() {
+    const double corner = 12;
+    const double edge = 6;
+    const double minW = 350;
+    const double minH = 250;
+    return [
+      Positioned(
+        right: 0,
+        top: corner,
+        bottom: corner,
+        child: _ResizeHandle(
+          width: edge,
+          cursor: SystemMouseCursors.resizeLeftRight,
+          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, 1920.0), height)),
+        ),
+      ),
+      Positioned(
+        bottom: 0,
+        left: corner,
+        right: corner,
+        child: _ResizeHandle(
+          height: edge,
+          cursor: SystemMouseCursors.resizeUpDown,
+          onResize: (dx, dy) => onResize!(Size(width, (height + dy).clamp(minH, 1080.0))),
+        ),
+      ),
+      Positioned(
+        left: 0,
+        top: corner,
+        bottom: corner,
+        child: _ResizeHandle(
+          width: edge,
+          cursor: SystemMouseCursors.resizeLeftRight,
+          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, 1920.0), height)),
+        ),
+      ),
+      Positioned(
+        top: 0,
+        left: corner,
+        right: corner,
+        child: _ResizeHandle(
+          height: edge,
+          cursor: SystemMouseCursors.resizeUpDown,
+          onResize: (dx, dy) => onResize!(Size(width, (height - dy).clamp(minH, 1080.0))),
+        ),
+      ),
+      Positioned(
+        left: 0,
+        top: 0,
+        child: _ResizeHandle(
+          width: corner,
+          height: corner,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, 1920.0), (height - dy).clamp(minH, 1080.0))),
+        ),
+      ),
+      Positioned(
+        right: 0,
+        top: 0,
+        child: _ResizeHandle(
+          width: corner,
+          height: corner,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, 1920.0), (height - dy).clamp(minH, 1080.0))),
+        ),
+      ),
+      Positioned(
+        left: 0,
+        bottom: 0,
+        child: _ResizeHandle(
+          width: corner,
+          height: corner,
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, 1920.0), (height + dy).clamp(minH, 1080.0))),
+        ),
+      ),
+      Positioned(
+        right: 0,
+        bottom: 0,
+        child: _ResizeHandle(
+          width: corner,
+          height: corner,
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, 1920.0), (height + dy).clamp(minH, 1080.0))),
+        ),
+      ),
+    ];
+  }
+}
+
+class _WindowButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+  final bool isClose;
+
+  const _WindowButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+    this.isClose = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, color: Colors.white.withValues(alpha: 0.85), size: 16),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResizeHandle extends StatelessWidget {
+  final double? width;
+  final double? height;
+  final MouseCursor cursor;
+  final void Function(double dx, double dy) onResize;
+
+  const _ResizeHandle({
+    this.width,
+    this.height,
+    required this.cursor,
+    required this.onResize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: cursor,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          onResize(details.delta.dx, details.delta.dy);
+        },
+        child: Container(
+          width: width,
+          height: height,
+          color: Colors.transparent,
+        ),
+      ),
+    );
+  }
+}
+
+class Sidebar extends StatelessWidget {
+  final void Function(String title, {Widget? child}) onMenuTap;
+
+  const Sidebar({super.key, required this.onMenuTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = Responsive.isMobile(context);
+
+    return Container(
+      color: Colors.white,
+      width: isMobile ? double.infinity : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isMobile)
+            Container(
+              padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 16, 16, 12),
+              child: Row(
+                children: const [
+                  Icon(Icons.inventory_2, color: Color(0xFF1565C0), size: 24),
+                  SizedBox(width: 10),
+                  Text(
+                    'Product Manager',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Color(0xFF1565C0)),
+                  ),
+                ],
               ),
             ),
-          ],
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+            child: Text(
+              'MODULES',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ),
+          _SidebarItem(
+            icon: Icons.inventory_2_outlined,
+            title: 'Products',
+            onTap: () => onMenuTap('Products', child: const ProductListWidget()),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Text(
+              'OTHERS',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ),
+          _SidebarItem(
+            icon: Icons.article_outlined,
+            title: 'Test',
+            onTap: () => onMenuTap('Test'),
+          ),
+          _SidebarItem(
+            icon: Icons.article_outlined,
+            title: 'Test 1',
+            onTap: () => onMenuTap('Test 1'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const _SidebarItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: Colors.grey.shade600),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -425,12 +838,15 @@ class _ProductListWidgetState extends State<ProductListWidget> {
   int _currentIndex = 0;
   bool _isEditing = false;
   bool _isNewRecord = false;
+  bool _isSaving = false;
 
   late TextEditingController _nameController;
   late TextEditingController _priceController;
   late TextEditingController _stockController;
   late TextEditingController _descriptionController;
-  late bool _isActive;
+  bool _isActive = true;
+
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -439,7 +855,6 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     _priceController = TextEditingController();
     _stockController = TextEditingController();
     _descriptionController = TextEditingController();
-    _isActive = true;
     _fetchProducts();
   }
 
@@ -452,6 +867,57 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     super.dispose();
   }
 
+  void _showTopNotification(String message, {bool isError = false}) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 16,
+        right: 16,
+        child: Material(
+          elevation: 6,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8, minWidth: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isError ? Colors.red.shade600 : Colors.green.shade600,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isError ? Icons.error_outline : Icons.check_circle_outline,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    message,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () => entry.remove(),
+                  child: const Icon(Icons.close, color: Colors.white70, size: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (entry.mounted) entry.remove();
+    });
+  }
+
   Future<void> _fetchProducts() async {
     try {
       final response = await http.get(Uri.parse('$apiBaseUrl/api/products'));
@@ -460,19 +926,22 @@ class _ProductListWidgetState extends State<ProductListWidget> {
         setState(() {
           _products = data.map((json) => Product.fromJson(json)).toList();
           _isLoading = false;
+          if (_products.isNotEmpty && _currentIndex >= _products.length) {
+            _currentIndex = _products.length - 1;
+          }
           if (_products.isNotEmpty) {
             _loadCurrentRecord();
           }
         });
       } else {
         setState(() {
-          _error = 'Failed to load products: ${response.statusCode}';
+          _error = 'Failed to load products (${response.statusCode})';
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        _error = 'Error: $e';
+        _error = e.toString();
         _isLoading = false;
       });
     }
@@ -482,7 +951,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     if (_products.isEmpty) return;
     final product = _products[_currentIndex];
     _nameController.text = product.name ?? '';
-    _priceController.text = product.price.toString();
+    _priceController.text = product.price.toStringAsFixed(2);
     _stockController.text = product.stock.toString();
     _descriptionController.text = product.description ?? '';
     _isActive = product.isActive;
@@ -560,6 +1029,8 @@ class _ProductListWidgetState extends State<ProductListWidget> {
   void _showSearchDialog() {
     String searchQuery = '';
     List<Product> filteredProducts = List.from(_products);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialogWidth = (screenWidth * 0.85).clamp(300.0, 500.0);
 
     showDialog(
       context: context,
@@ -567,18 +1038,28 @@ class _ProductListWidgetState extends State<ProductListWidget> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Search Products'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.search, size: 20),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text('Search Products', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
               content: SizedBox(
-                width: 400,
+                width: dialogWidth,
                 height: 400,
                 child: Column(
                   children: [
                     TextField(
                       autofocus: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Search by Name',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: 'Search by name...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       onChanged: (value) {
                         searchQuery = value.toLowerCase();
@@ -589,18 +1070,59 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Expanded(
                       child: filteredProducts.isEmpty
-                          ? const Center(child: Text('No products found'))
-                          : ListView.builder(
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.search_off, size: 40, color: Colors.grey.shade300),
+                                  const SizedBox(height: 8),
+                                  Text('No products found', style: TextStyle(color: Colors.grey.shade500)),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
                               itemCount: filteredProducts.length,
+                              separatorBuilder: (context, index) => const Divider(height: 1),
                               itemBuilder: (context, index) {
                                 final product = filteredProducts[index];
                                 return ListTile(
-                                  title: Text(product.name ?? ''),
-                                  subtitle: Text('\$${product.price.toStringAsFixed(2)}'),
-                                  trailing: Text('Stock: ${product.stock}'),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                                    child: Text(
+                                      (product.name?.isNotEmpty == true ? product.name![0] : '?').toUpperCase(),
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1565C0)),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    product.name ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                  ),
+                                  subtitle: Text(
+                                    '\$${product.price.toStringAsFixed(2)}',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: Colors.grey.shade600),
+                                  ),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: product.isActive ? Colors.green.shade50 : Colors.red.shade50,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Stock: ${product.stock}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: product.isActive ? Colors.green.shade700 : Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ),
                                   onTap: () {
                                     final originalIndex = _products.indexWhere((p) => p.id == product.id);
                                     if (originalIndex != -1) {
@@ -634,19 +1156,17 @@ class _ProductListWidgetState extends State<ProductListWidget> {
   }
 
   Future<void> _saveRecord() async {
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Name is required')),
-      );
-      return;
-    }
+    if (_isSaving) return;
+    if (_formKey.currentState?.validate() != true) return;
+
+    setState(() => _isSaving = true);
 
     try {
       final product = Product(
         id: _isNewRecord ? 0 : _products[_currentIndex].id,
-        name: _nameController.text,
+        name: _nameController.text.trim(),
         price: double.tryParse(_priceController.text) ?? 0,
-        description: _descriptionController.text,
+        description: _descriptionController.text.trim(),
         stock: int.tryParse(_stockController.text) ?? 0,
         isActive: _isActive,
         createdDate: _isNewRecord ? DateTime.now() : _products[_currentIndex].createdDate,
@@ -668,24 +1188,27 @@ class _ProductListWidgetState extends State<ProductListWidget> {
       }
 
       if (response.statusCode == 201 || response.statusCode == 204) {
+        final wasNew = _isNewRecord;
         setState(() {
           _isEditing = false;
           _isNewRecord = false;
+          _isSaving = false;
         });
+        if (mounted) {
+          _showTopNotification(wasNew ? 'Product created successfully' : 'Product updated successfully');
+        }
         await _fetchProducts();
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${response.statusCode}')),
-          );
+          _showTopNotification('Error: ${response.statusCode}', isError: true);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        _showTopNotification('Error: $e', isError: true);
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -695,17 +1218,34 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Product'),
-        content: Text('Are you sure you want to delete "${_products[_currentIndex].name}"?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
+            SizedBox(width: 8),
+            Flexible(
+              child: Text('Delete Product', overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${_products[_currentIndex].name}"? This action cannot be undone.',
+          overflow: TextOverflow.ellipsis,
+          maxLines: 3,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton.icon(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Delete'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
@@ -720,13 +1260,14 @@ class _ProductListWidgetState extends State<ProductListWidget> {
           if (_currentIndex >= _products.length - 1 && _currentIndex > 0) {
             _currentIndex--;
           }
+          if (mounted) {
+            _showTopNotification('Product deleted successfully');
+          }
           await _fetchProducts();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting product: $e')),
-          );
+          _showTopNotification('Error deleting product: $e', isError: true);
         }
       }
     }
@@ -735,174 +1276,461 @@ class _ProductListWidgetState extends State<ProductListWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading products...', style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
     }
 
     if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-            const SizedBox(height: 16),
-            Text(_error!, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                  _error = null;
-                });
-                _fetchProducts();
-              },
-              child: const Text('Retry'),
+        child: Card(
+          margin: const EdgeInsets.all(32),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+                const SizedBox(height: 16),
+                Text(
+                  _error!,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 15),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isLoading = true;
+                      _error = null;
+                    });
+                    _fetchProducts();
+                  },
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Retry'),
+                ),
+              ],
             ),
-          ],
+          ),
+        ),
+      );
+    }
+
+    if (_products.isEmpty) {
+      return Center(
+        child: Card(
+          margin: const EdgeInsets.all(32),
+          child: Padding(
+            padding: EdgeInsets.all(Responsive.isMobile(context) ? 24 : 48),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                Text(
+                  'No Products Found',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Get started by adding your first product.',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey.shade500),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: _addNew,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Product'),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
 
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-          ),
-          child: Row(
-            children: [
-              _buildIconButton(Icons.first_page, 'First', _goToFirst, _products.isEmpty || _currentIndex == 0),
-              _buildIconButton(Icons.chevron_left, 'Previous', _goToPrevious, _products.isEmpty || _currentIndex == 0),
-              _buildIconButton(Icons.chevron_right, 'Next', _goToNext, _products.isEmpty || _currentIndex == _products.length - 1),
-              _buildIconButton(Icons.last_page, 'Last', _goToLast, _products.isEmpty || _currentIndex == _products.length - 1),
-              const SizedBox(width: 16),
-              _buildActionButton('Add New', Colors.blue, Icons.add, _addNew),
-              const SizedBox(width: 8),
-              _buildActionButton('Edit', Colors.grey[700]!, Icons.edit, _products.isEmpty ? null : _editRecord),
-              const SizedBox(width: 8),
-              _buildActionButton('Delete', Colors.red, Icons.delete, _products.isEmpty ? null : _deleteRecord),
-              const SizedBox(width: 8),
-              _buildActionButton('Save', Colors.green, Icons.save, _isEditing ? _saveRecord : null),
-              const SizedBox(width: 8),
-              _buildActionButton('Undo', Colors.grey[600]!, Icons.undo, _isEditing ? _undoChanges : null),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: _showSearchDialog,
-                tooltip: 'Search',
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Product ${_products.isEmpty ? 0 : _currentIndex + 1} of ${_products.length}',
-                style: const TextStyle(fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildSection('PRODUCT INFORMATION', [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField('Name *', _nameController, enabled: _isEditing),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTextField('Price', _priceController, enabled: _isEditing, prefix: '\$'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField('Stock', _stockController, enabled: _isEditing),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildSwitchField('Active', _isActive, _isEditing, (value) {
-                          setState(() {
-                            _isActive = value;
-                          });
-                        }),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField('Description', _descriptionController, enabled: _isEditing, maxLines: 3),
-                ]),
-              ],
-            ),
-          ),
-        ),
+        _buildToolbar(),
+        Expanded(child: _buildForm()),
       ],
     );
   }
 
-  Widget _buildIconButton(IconData icon, String tooltip, VoidCallback? onPressed, bool disabled) {
-    return IconButton(
-      icon: Icon(icon, size: 20),
-      onPressed: disabled ? null : onPressed,
-      tooltip: tooltip,
-      color: Colors.grey[700],
-    );
-  }
+  Widget _buildToolbar() {
+    final bool hasData = _products.isNotEmpty;
+    final bool isFirst = _currentIndex == 0;
+    final bool isLast = _currentIndex == _products.length - 1;
+    final isMobile = Responsive.isMobile(context);
 
-  Widget _buildActionButton(String label, Color color, IconData icon, VoidCallback? onPressed) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: onPressed != null ? color : Colors.grey[300],
-        foregroundColor: onPressed != null ? Colors.white : Colors.grey[600],
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
-    );
-  }
-
-  Widget _buildSection(String title, List<Widget> children) {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(4),
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+      clipBehavior: Clip.hardEdge,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _NavIconButton(Icons.first_page, _goToFirst, !hasData || isFirst || _isEditing, 'First'),
+            _NavIconButton(Icons.chevron_left, _goToPrevious, !hasData || isFirst || _isEditing, 'Previous'),
+            _NavIconButton(Icons.chevron_right, _goToNext, !hasData || isLast || _isEditing, 'Next'),
+            _NavIconButton(Icons.last_page, _goToLast, !hasData || isLast || _isEditing, 'Last'),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              color: Colors.grey.shade300,
             ),
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
+            _ActionChipButton(
+              label: 'Add',
+              icon: Icons.add,
+              color: const Color(0xFF1565C0),
+              onPressed: _isEditing ? null : _addNew,
+            ),
+            const SizedBox(width: 6),
+            _ActionChipButton(
+              label: 'Edit',
+              icon: Icons.edit_outlined,
+              color: Colors.grey.shade700,
+              onPressed: (!hasData || _isEditing) ? null : _editRecord,
+            ),
+            const SizedBox(width: 6),
+            _ActionChipButton(
+              label: 'Delete',
+              icon: Icons.delete_outline,
+              color: Colors.red.shade600,
+              onPressed: (!hasData || _isEditing) ? null : _deleteRecord,
+            ),
+            const SizedBox(width: 6),
+            _ActionChipButton(
+              label: _isSaving ? 'Saving...' : 'Save',
+              icon: _isSaving ? Icons.hourglass_top : Icons.check,
+              color: Colors.green.shade600,
+              onPressed: (_isEditing && !_isSaving) ? _saveRecord : null,
+            ),
+            const SizedBox(width: 6),
+            _ActionChipButton(
+              label: 'Undo',
+              icon: Icons.undo,
+              color: Colors.orange.shade700,
+              onPressed: _isEditing ? _undoChanges : null,
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(Icons.search, size: 20, color: Colors.grey.shade600),
+              onPressed: _showSearchDialog,
+              tooltip: 'Search',
+              splashRadius: 18,
+            ),
+            if (!isMobile) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  '${_currentIndex + 1} / ${_products.length}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    final isMobile = Responsive.isMobile(context);
+    final padding = isMobile ? 12.0 : 20.0;
+
+    return SingleChildScrollView(
+      clipBehavior: Clip.hardEdge,
+      padding: EdgeInsets.all(padding),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              clipBehavior: Clip.hardEdge,
+              child: Padding(
+                padding: EdgeInsets.all(isMobile ? 14 : 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.inventory_2, size: 20, color: Color(0xFF1565C0)),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            'Product Information',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: isMobile ? 14 : 16, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    if (isMobile) ...[
+                      _buildField(
+                        label: 'Name',
+                        child: TextFormField(
+                          controller: _nameController,
+                          enabled: _isEditing,
+                          validator: (value) {
+                            if (_isEditing && (value == null || value.trim().isEmpty)) {
+                              return 'Required';
+                            }
+                            return null;
+                          },
+                          decoration: const InputDecoration(hintText: 'Enter product name'),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildField(
+                        label: 'Price',
+                        child: TextFormField(
+                          controller: _priceController,
+                          enabled: _isEditing,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          validator: (value) {
+                            if (_isEditing && (value == null || value.trim().isEmpty)) {
+                              return 'Required';
+                            }
+                            if (_isEditing) {
+                              final num = double.tryParse(value!);
+                              if (num == null) return 'Invalid number';
+                              if (num < 0) return 'Must be positive';
+                            }
+                            return null;
+                          },
+                          decoration: const InputDecoration(
+                            hintText: '0.00',
+                            prefixText: '\$ ',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildField(
+                        label: 'Stock',
+                        child: TextFormField(
+                          controller: _stockController,
+                          enabled: _isEditing,
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (_isEditing && (value == null || value.trim().isEmpty)) {
+                              return 'Required';
+                            }
+                            if (_isEditing) {
+                              final num = int.tryParse(value!);
+                              if (num == null) return 'Invalid integer';
+                              if (num < 0) return 'Must be positive';
+                            }
+                            return null;
+                          },
+                          decoration: const InputDecoration(hintText: '0'),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildField(
+                        label: 'Status',
+                        child: Container(
+                          height: 48,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _isActive ? Icons.check_circle : Icons.cancel,
+                                size: 16,
+                                color: _isActive ? Colors.green.shade600 : Colors.red.shade400,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isActive ? 'Active' : 'Inactive',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (_isEditing)
+                                Switch(
+                                  value: _isActive,
+                                  onChanged: (value) => setState(() => _isActive = value),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildField(
+                              label: 'Name',
+                              child: TextFormField(
+                                controller: _nameController,
+                                enabled: _isEditing,
+                                validator: (value) {
+                                  if (_isEditing && (value == null || value.trim().isEmpty)) {
+                                    return 'Required';
+                                  }
+                                  return null;
+                                },
+                                decoration: const InputDecoration(hintText: 'Enter product name'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildField(
+                              label: 'Price',
+                              child: TextFormField(
+                                controller: _priceController,
+                                enabled: _isEditing,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                validator: (value) {
+                                  if (_isEditing && (value == null || value.trim().isEmpty)) {
+                                    return 'Required';
+                                  }
+                                  if (_isEditing) {
+                                    final num = double.tryParse(value!);
+                                    if (num == null) return 'Invalid number';
+                                    if (num < 0) return 'Must be positive';
+                                  }
+                                  return null;
+                                },
+                                decoration: const InputDecoration(
+                                  hintText: '0.00',
+                                  prefixText: '\$ ',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildField(
+                              label: 'Stock',
+                              child: TextFormField(
+                                controller: _stockController,
+                                enabled: _isEditing,
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (_isEditing && (value == null || value.trim().isEmpty)) {
+                                    return 'Required';
+                                  }
+                                  if (_isEditing) {
+                                    final num = int.tryParse(value!);
+                                    if (num == null) return 'Invalid integer';
+                                    if (num < 0) return 'Must be positive';
+                                  }
+                                  return null;
+                                },
+                                decoration: const InputDecoration(hintText: '0'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildField(
+                              label: 'Status',
+                              child: Container(
+                                height: 48,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.white,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _isActive ? Icons.check_circle : Icons.cancel,
+                                      size: 16,
+                                      color: _isActive ? Colors.green.shade600 : Colors.red.shade400,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _isActive ? 'Active' : 'Inactive',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.grey.shade800,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (_isEditing)
+                                      Switch(
+                                        value: _isActive,
+                                        onChanged: (value) => setState(() => _isActive = value),
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildField(
+                      label: 'Description',
+                      child: TextFormField(
+                        controller: _descriptionController,
+                        enabled: _isEditing,
+                        maxLines: isMobile ? 2 : 3,
+                        decoration: const InputDecoration(hintText: 'Enter product description (optional)'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: children),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool enabled = true, int maxLines = 1, String? prefix}) {
+  Widget _buildField({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -910,42 +1738,86 @@ class _ProductListWidgetState extends State<ProductListWidget> {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: label.contains('*') ? Colors.red : Colors.grey[700],
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
           ),
         ),
-        const SizedBox(height: 4),
-        TextFormField(
-          controller: controller,
-          enabled: enabled,
-          maxLines: maxLines,
-          decoration: InputDecoration(
-            border: const OutlineInputBorder(),
-            enabledBorder: const OutlineInputBorder(),
-            disabledBorder: const OutlineInputBorder(),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            filled: !enabled,
-            fillColor: enabled ? null : Colors.grey[100],
-            prefixText: prefix,
-          ),
-        ),
+        const SizedBox(height: 6),
+        child,
       ],
     );
   }
+}
 
-  Widget _buildSwitchField(String label, bool value, bool enabled, ValueChanged<bool> onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+class _NavIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool disabled;
+  final String tooltip;
+
+  const _NavIconButton(this.icon, this.onPressed, this.disabled, this.tooltip);
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: IconButton(
+        icon: Icon(icon, size: 20),
+        onPressed: disabled ? null : onPressed,
+        splashRadius: 16,
+        visualDensity: VisualDensity.compact,
+        color: Colors.grey.shade700,
+        disabledColor: Colors.grey.shade300,
+      ),
+    );
+  }
+}
+
+class _ActionChipButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _ActionChipButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onPressed != null;
+    return Material(
+      color: enabled ? color.withValues(alpha: 0.08) : Colors.grey.shade100,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: enabled ? color : Colors.grey.shade400,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? color : Colors.grey.shade400,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        Switch(
-          value: value,
-          onChanged: enabled ? onChanged : null,
-        ),
-      ],
+      ),
     );
   }
 }
