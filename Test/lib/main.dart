@@ -422,11 +422,34 @@ class _ProductListWidgetState extends State<ProductListWidget> {
   List<Product> _products = [];
   bool _isLoading = true;
   String? _error;
+  int _currentIndex = 0;
+  bool _isEditing = false;
+  bool _isNewRecord = false;
+
+  late TextEditingController _nameController;
+  late TextEditingController _priceController;
+  late TextEditingController _stockController;
+  late TextEditingController _descriptionController;
+  late bool _isActive;
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController();
+    _priceController = TextEditingController();
+    _stockController = TextEditingController();
+    _descriptionController = TextEditingController();
+    _isActive = true;
     _fetchProducts();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _stockController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchProducts() async {
@@ -437,6 +460,9 @@ class _ProductListWidgetState extends State<ProductListWidget> {
         setState(() {
           _products = data.map((json) => Product.fromJson(json)).toList();
           _isLoading = false;
+          if (_products.isNotEmpty) {
+            _loadCurrentRecord();
+          }
         });
       } else {
         setState(() {
@@ -452,52 +478,257 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     }
   }
 
-  Future<void> _deleteProduct(int id) async {
+  void _loadCurrentRecord() {
+    if (_products.isEmpty) return;
+    final product = _products[_currentIndex];
+    _nameController.text = product.name ?? '';
+    _priceController.text = product.price.toString();
+    _stockController.text = product.stock.toString();
+    _descriptionController.text = product.description ?? '';
+    _isActive = product.isActive;
+  }
+
+  void _goToFirst() {
+    if (_products.isEmpty) return;
+    setState(() {
+      _currentIndex = 0;
+      _isEditing = false;
+      _isNewRecord = false;
+      _loadCurrentRecord();
+    });
+  }
+
+  void _goToPrevious() {
+    if (_products.isEmpty || _currentIndex == 0) return;
+    setState(() {
+      _currentIndex--;
+      _isEditing = false;
+      _isNewRecord = false;
+      _loadCurrentRecord();
+    });
+  }
+
+  void _goToNext() {
+    if (_products.isEmpty || _currentIndex == _products.length - 1) return;
+    setState(() {
+      _currentIndex++;
+      _isEditing = false;
+      _isNewRecord = false;
+      _loadCurrentRecord();
+    });
+  }
+
+  void _goToLast() {
+    if (_products.isEmpty) return;
+    setState(() {
+      _currentIndex = _products.length - 1;
+      _isEditing = false;
+      _isNewRecord = false;
+      _loadCurrentRecord();
+    });
+  }
+
+  void _addNew() {
+    setState(() {
+      _isNewRecord = true;
+      _isEditing = true;
+      _nameController.clear();
+      _priceController.clear();
+      _stockController.clear();
+      _descriptionController.clear();
+      _isActive = true;
+    });
+  }
+
+  void _editRecord() {
+    setState(() {
+      _isEditing = true;
+      _isNewRecord = false;
+    });
+  }
+
+  void _undoChanges() {
+    setState(() {
+      _isEditing = false;
+      _isNewRecord = false;
+      if (_products.isNotEmpty) {
+        _loadCurrentRecord();
+      }
+    });
+  }
+
+  void _showSearchDialog() {
+    String searchQuery = '';
+    List<Product> filteredProducts = List.from(_products);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Search Products'),
+              content: SizedBox(
+                width: 400,
+                height: 400,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Search by Name',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        searchQuery = value.toLowerCase();
+                        setDialogState(() {
+                          filteredProducts = _products
+                              .where((p) => (p.name ?? '').toLowerCase().contains(searchQuery))
+                              .toList();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: filteredProducts.isEmpty
+                          ? const Center(child: Text('No products found'))
+                          : ListView.builder(
+                              itemCount: filteredProducts.length,
+                              itemBuilder: (context, index) {
+                                final product = filteredProducts[index];
+                                return ListTile(
+                                  title: Text(product.name ?? ''),
+                                  subtitle: Text('\$${product.price.toStringAsFixed(2)}'),
+                                  trailing: Text('Stock: ${product.stock}'),
+                                  onTap: () {
+                                    final originalIndex = _products.indexWhere((p) => p.id == product.id);
+                                    if (originalIndex != -1) {
+                                      setState(() {
+                                        _currentIndex = originalIndex;
+                                        _isEditing = false;
+                                        _isNewRecord = false;
+                                        _loadCurrentRecord();
+                                      });
+                                    }
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _saveRecord() async {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name is required')),
+      );
+      return;
+    }
+
     try {
-      final response = await http.delete(Uri.parse('$apiBaseUrl/api/products/$id'));
-      if (response.statusCode == 204) {
-        _fetchProducts();
+      final product = Product(
+        id: _isNewRecord ? 0 : _products[_currentIndex].id,
+        name: _nameController.text,
+        price: double.tryParse(_priceController.text) ?? 0,
+        description: _descriptionController.text,
+        stock: int.tryParse(_stockController.text) ?? 0,
+        isActive: _isActive,
+        createdDate: _isNewRecord ? DateTime.now() : _products[_currentIndex].createdDate,
+      );
+
+      http.Response response;
+      if (_isNewRecord) {
+        response = await http.post(
+          Uri.parse('$apiBaseUrl/api/products'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(product.toJson()),
+        );
+      } else {
+        response = await http.put(
+          Uri.parse('$apiBaseUrl/api/products/${product.id}'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(product.toJson()),
+        );
+      }
+
+      if (response.statusCode == 201 || response.statusCode == 204) {
+        setState(() {
+          _isEditing = false;
+          _isNewRecord = false;
+        });
+        await _fetchProducts();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${response.statusCode}')),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting product: $e')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
   }
 
-  void _showDeleteConfirmation(Product product) {
-    showDialog(
+  Future<void> _deleteRecord() async {
+    if (_products.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Product'),
-        content: Text('Are you sure you want to delete "${product.name}"?'),
+        content: Text('Are you sure you want to delete "${_products[_currentIndex].name}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteProduct(product.id);
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-  }
 
-  Future<void> _showProductForm({Product? product}) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => ProductFormDialog(product: product),
-    );
-    if (result == true) {
-      _fetchProducts();
+    if (confirmed == true) {
+      try {
+        final response = await http.delete(
+          Uri.parse('$apiBaseUrl/api/products/${_products[_currentIndex].id}'),
+        );
+        if (response.statusCode == 204) {
+          if (_currentIndex >= _products.length - 1 && _currentIndex > 0) {
+            _currentIndex--;
+          }
+          await _fetchProducts();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting product: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -531,275 +762,188 @@ class _ProductListWidgetState extends State<ProductListWidget> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+          ),
+          child: Row(
             children: [
-              const Icon(Icons.inventory, size: 24),
+              _buildIconButton(Icons.first_page, 'First', _goToFirst, _products.isEmpty || _currentIndex == 0),
+              _buildIconButton(Icons.chevron_left, 'Previous', _goToPrevious, _products.isEmpty || _currentIndex == 0),
+              _buildIconButton(Icons.chevron_right, 'Next', _goToNext, _products.isEmpty || _currentIndex == _products.length - 1),
+              _buildIconButton(Icons.last_page, 'Last', _goToLast, _products.isEmpty || _currentIndex == _products.length - 1),
+              const SizedBox(width: 16),
+              _buildActionButton('Add New', Colors.blue, Icons.add, _addNew),
               const SizedBox(width: 8),
-              const Text(
-                'Products',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+              _buildActionButton('Edit', Colors.grey[700]!, Icons.edit, _products.isEmpty ? null : _editRecord),
+              const SizedBox(width: 8),
+              _buildActionButton('Delete', Colors.red, Icons.delete, _products.isEmpty ? null : _deleteRecord),
+              const SizedBox(width: 8),
+              _buildActionButton('Save', Colors.green, Icons.save, _isEditing ? _saveRecord : null),
+              const SizedBox(width: 8),
+              _buildActionButton('Undo', Colors.grey[600]!, Icons.undo, _isEditing ? _undoChanges : null),
               const Spacer(),
-              ElevatedButton.icon(
-                onPressed: () => _showProductForm(),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Product'),
+              IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: _showSearchDialog,
+                tooltip: 'Search',
               ),
               const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  setState(() {
-                    _isLoading = true;
-                  });
-                  _fetchProducts();
-                },
+              Text(
+                'Product ${_products.isEmpty ? 0 : _currentIndex + 1} of ${_products.length}',
+                style: const TextStyle(fontSize: 14),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: SingleChildScrollView(
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('ID')),
-                  DataColumn(label: Text('Name')),
-                  DataColumn(label: Text('Price')),
-                  DataColumn(label: Text('Stock')),
-                  DataColumn(label: Text('Description')),
-                  DataColumn(label: Text('Actions')),
-                ],
-                rows: _products.map((product) {
-                  return DataRow(cells: [
-                    DataCell(Text(product.id.toString())),
-                    DataCell(Text(product.name ?? '')),
-                    DataCell(Text('\$${product.price.toStringAsFixed(2)}')),
-                    DataCell(Text(product.stock.toString())),
-                    DataCell(Text(product.description ?? '')),
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () => _showProductForm(product: product),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _showDeleteConfirmation(product),
-                          ),
-                        ],
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildSection('PRODUCT INFORMATION', [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField('Name *', _nameController, enabled: _isEditing),
                       ),
-                    ),
-                  ]);
-                }).toList(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildTextField('Price', _priceController, enabled: _isEditing, prefix: '\$'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildTextField('Stock', _stockController, enabled: _isEditing),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildSwitchField('Active', _isActive, _isEditing, (value) {
+                          setState(() {
+                            _isActive = value;
+                          });
+                        }),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTextField('Description', _descriptionController, enabled: _isEditing, maxLines: 3),
+                ]),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, String tooltip, VoidCallback? onPressed, bool disabled) {
+    return IconButton(
+      icon: Icon(icon, size: 20),
+      onPressed: disabled ? null : onPressed,
+      tooltip: tooltip,
+      color: Colors.grey[700],
+    );
+  }
+
+  Widget _buildActionButton(String label, Color color, IconData icon, VoidCallback? onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: onPressed != null ? color : Colors.grey[300],
+        foregroundColor: onPressed != null ? Colors.white : Colors.grey[600],
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            ),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
               ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(children: children),
           ),
         ],
       ),
     );
   }
-}
 
-class ProductFormDialog extends StatefulWidget {
-  final Product? product;
-
-  const ProductFormDialog({super.key, this.product});
-
-  @override
-  State<ProductFormDialog> createState() => _ProductFormDialogState();
-}
-
-class _ProductFormDialogState extends State<ProductFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _priceController;
-  late TextEditingController _stockController;
-  late TextEditingController _descriptionController;
-  late bool _isActive;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.product?.name ?? '');
-    _priceController = TextEditingController(text: widget.product?.price.toString() ?? '');
-    _stockController = TextEditingController(text: widget.product?.stock.toString() ?? '0');
-    _descriptionController = TextEditingController(text: widget.product?.description ?? '');
-    _isActive = widget.product?.isActive ?? true;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _priceController.dispose();
-    _stockController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  bool get isEditing => widget.product != null;
-
-  Future<void> _saveProduct() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
-
-    try {
-      final product = Product(
-        id: widget.product?.id ?? 0,
-        name: _nameController.text,
-        price: double.parse(_priceController.text),
-        description: _descriptionController.text,
-        stock: int.parse(_stockController.text),
-        isActive: _isActive,
-        createdDate: widget.product?.createdDate ?? DateTime.now(),
-      );
-
-      http.Response response;
-      if (isEditing) {
-        response = await http.put(
-          Uri.parse('$apiBaseUrl/api/products/${product.id}'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode(product.toJson()),
-        );
-      } else {
-        response = await http.post(
-          Uri.parse('$apiBaseUrl/api/products'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode(product.toJson()),
-        );
-      }
-
-      if (mounted) {
-        if (response.statusCode == 201 || response.statusCode == 204) {
-          Navigator.pop(context, true);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${response.statusCode}')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(isEditing ? 'Edit Product' : 'Add Product'),
-      content: SizedBox(
-        width: 400,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _priceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Price',
-                    border: OutlineInputBorder(),
-                    prefixText: '\$',
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a price';
-                    }
-                    if (double.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _stockController,
-                  decoration: const InputDecoration(
-                    labelText: 'Stock',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter stock quantity';
-                    }
-                    if (int.tryParse(value) == null) {
-                      return 'Please enter a valid integer';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Active'),
-                  value: _isActive,
-                  onChanged: (value) {
-                    setState(() {
-                      _isActive = value;
-                    });
-                  },
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ],
-            ),
+  Widget _buildTextField(String label, TextEditingController controller, {bool enabled = true, int maxLines = 1, String? prefix}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: label.contains('*') ? Colors.red : Colors.grey[700],
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          enabled: enabled,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            enabledBorder: const OutlineInputBorder(),
+            disabledBorder: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            filled: !enabled,
+            fillColor: enabled ? null : Colors.grey[100],
+            prefixText: prefix,
+          ),
         ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _saveProduct,
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+      ],
+    );
+  }
+
+  Widget _buildSwitchField(String label, bool value, bool enabled, ValueChanged<bool> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+        ),
+        const SizedBox(height: 4),
+        Switch(
+          value: value,
+          onChanged: enabled ? onChanged : null,
         ),
       ],
     );
