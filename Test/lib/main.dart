@@ -89,6 +89,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
   double _menuWidth = 240;
   bool _isMenuVisible = true;
   double _previousMenuWidth = 240;
+  int? _activeWindowId;
 
   void _toggleMenu() {
     setState(() {
@@ -128,6 +129,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
       if (idx != -1) {
         final win = _windows.removeAt(idx);
         _windows.add(win);
+        _activeWindowId = id;
       }
     });
   }
@@ -137,6 +139,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
       final win = _windows.firstWhere((w) => w.id == id);
       win.maximized = !win.maximized;
       win.minimized = false;
+      _activeWindowId = id;
     });
   }
 
@@ -144,6 +147,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
     setState(() {
       final win = _windows.firstWhere((w) => w.id == id);
       win.minimized = true;
+      if (_activeWindowId == id) _activeWindowId = null;
     });
   }
 
@@ -151,6 +155,71 @@ class _MDIHomePageState extends State<MDIHomePage> {
     setState(() {
       final win = _windows.firstWhere((w) => w.id == id);
       win.minimized = false;
+      _activeWindowId = id;
+    });
+  }
+
+  void _cascadeWindows() {
+    setState(() {
+      int index = 0;
+      for (final win in _windows.where((w) => !w.minimized)) {
+        win.maximized = false;
+        win.offset = Offset(40.0 + index * 32, 40.0 + index * 32);
+        win.width = 700;
+        win.height = 500;
+        index++;
+      }
+    });
+  }
+
+  void _tileHorizontal() {
+    final visible = _windows.where((w) => !w.minimized).toList();
+    if (visible.isEmpty) return;
+    setState(() {
+      final rows = (visible.length <= 2) ? 1 : (visible.length <= 4 ? 2 : 3);
+      final cols = (visible.length / rows).ceil();
+      for (int i = 0; i < visible.length; i++) {
+        final win = visible[i];
+        win.maximized = false;
+        final row = i ~/ cols;
+        final col = i % cols;
+        win.offset = Offset(col * 400.0, row * 350.0);
+        win.width = 700;
+        win.height = 500;
+      }
+    });
+  }
+
+  void _tileVertical() {
+    final visible = _windows.where((w) => !w.minimized).toList();
+    if (visible.isEmpty) return;
+    setState(() {
+      final cols = (visible.length <= 2) ? 1 : (visible.length <= 4 ? 2 : 3);
+      for (int i = 0; i < visible.length; i++) {
+        final win = visible[i];
+        win.maximized = false;
+        final row = i ~/ cols;
+        final col = i % cols;
+        win.offset = Offset(col * 400.0, row * 350.0);
+        win.width = 700;
+        win.height = 500;
+      }
+    });
+  }
+
+  void _minimizeAll() {
+    setState(() {
+      for (final win in _windows) {
+        win.minimized = true;
+      }
+      _activeWindowId = null;
+    });
+  }
+
+  void _closeAll() {
+    setState(() {
+      _windows.clear();
+      _activeWindowId = null;
     });
   }
 
@@ -165,10 +234,128 @@ class _MDIHomePageState extends State<MDIHomePage> {
     );
   }
 
+  Widget _buildMenuBar() {
+    final hasWindows = _windows.isNotEmpty;
+
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F6F8),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Row(
+        children: [
+          _buildMenuDropdown('File', [
+            _MenuItemData('Close All', Icons.close_fullscreen, hasWindows ? _closeAll : null),
+          ]),
+          _buildMenuDropdown('Window', [
+            _MenuItemData('Cascade', Icons.view_carousel, hasWindows ? _cascadeWindows : null),
+            _MenuItemData('Tile Horizontal', Icons.view_module, hasWindows ? _tileHorizontal : null),
+            _MenuItemData('Tile Vertical', Icons.view_quilt, hasWindows ? _tileVertical : null),
+            null, // separator
+            _MenuItemData('Minimize All', Icons.minimize, hasWindows ? _minimizeAll : null),
+            null, // separator
+            ..._windows.map((win) => _MenuItemData(
+              win.title,
+              win.minimized ? Icons.open_in_new : Icons.tab,
+              () {
+                if (win.minimized) {
+                  _restoreWindow(win.id);
+                } else {
+                  _bringToFront(win.id);
+                }
+              },
+              isChecked: _activeWindowId == win.id && !win.minimized,
+            )),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuDropdown(String label, List<_MenuItemData?> items) {
+    return MenuAnchor(
+      menuChildren: items.map<Widget>((item) {
+        if (item == null) {
+          return const Divider(height: 1, indent: 8, endIndent: 8);
+        }
+        return MenuItemButton(
+          leadingIcon: Icon(item.icon, size: 18),
+          trailingIcon: item.isChecked ? const Icon(Icons.check, size: 18) : null,
+          onPressed: item.onTap,
+          child: Text(item.label, style: const TextStyle(fontSize: 13)),
+        );
+      }).toList(),
+      builder: (context, controller, child) {
+        return InkWell(
+          onTap: () {
+            if (controller.isOpen) {
+              controller.close();
+            } else {
+              controller.open();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusBar() {
+    final activeWindow = _activeWindowId != null
+        ? _windows.where((w) => w.id == _activeWindowId).firstOrNull
+        : null;
+
+    return Container(
+      height: 26,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8EAED),
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+          const SizedBox(width: 6),
+          Text(
+            'Windows: ${_windows.length}',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+          const SizedBox(width: 16),
+          if (activeWindow != null) ...[
+            Icon(Icons.tab, size: 14, color: Colors.blue.shade700),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Active: ${activeWindow.title}',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
+              ),
+            ),
+          ] else
+            Text(
+              'Active: None',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          const Spacer(),
+          Text(
+            '${_windows.where((w) => w.minimized).length} minimized',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleWindows = _windows.where((w) => !w.minimized).toList();
-    final minimizedWindows = _windows.where((w) => w.minimized).toList();
     final isMobile = Responsive.isMobile(context);
 
     return Scaffold(
@@ -202,44 +389,21 @@ class _MDIHomePageState extends State<MDIHomePage> {
           ],
         ),
         actions: [
-          if (minimizedWindows.isNotEmpty)
-            ...minimizedWindows.map((win) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  child: InkWell(
-                    onTap: () => _restoreWindow(win.id),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Tooltip(
-                      message: win.title,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.open_in_new, size: 14, color: Colors.white),
-                            const SizedBox(width: 6),
-                            Text(
-                              win.title,
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
           const SizedBox(width: 8),
         ],
       ),
       drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
       body: isMobile
           ? _buildMobileBody(visibleWindows)
-          : _buildDesktopBody(visibleWindows),
+          : Column(
+              children: [
+                _buildMenuBar(),
+                Expanded(
+                  child: _buildDesktopBody(visibleWindows),
+                ),
+                _buildStatusBar(),
+              ],
+            ),
     );
   }
 
@@ -275,6 +439,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
   }
 
   Widget _buildDesktopBody(List<_MDIWindow> visibleWindows) {
+    final minimizedWindows = _windows.where((w) => w.minimized).toList();
+
     return Row(
       children: [
         AnimatedContainer(
@@ -304,7 +470,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
           child: ClipRect(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                if (visibleWindows.isEmpty) {
+                if (_windows.isEmpty) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -320,55 +486,129 @@ class _MDIHomePageState extends State<MDIHomePage> {
                     ),
                   );
                 }
-                return Stack(
-                  children: visibleWindows.map((win) {
-                    if (win.maximized) {
-                      return Positioned.fill(
-                        child: GestureDetector(
-                          onTap: () => _bringToFront(win.id),
-                          child: MDIWindowWidget(
-                            title: win.title,
-                            maximized: true,
-                            onClose: () => _closeWindow(win.id),
-                            onMaximize: () => _toggleMaximize(win.id),
-                            onMinimize: () => _minimizeWindow(win.id),
-                            child: win.child,
-                          ),
+
+                final mdiAreaHeight = constraints.maxHeight;
+                final minimizedBarHeight = minimizedWindows.isNotEmpty ? 36.0 : 0.0;
+                final mainAreaHeight = mdiAreaHeight - minimizedBarHeight;
+
+                return Column(
+                  children: [
+                    // Main MDI client area with visible windows
+                    SizedBox(
+                      height: mainAreaHeight,
+                      child: Stack(
+                        children: visibleWindows.isEmpty
+                            ? [
+                                Positioned.fill(
+                                  child: Center(
+                                    child: Text(
+                                      'All windows minimized',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+                                    ),
+                                  ),
+                                ),
+                              ]
+                            : visibleWindows.map((win) {
+                                final isActive = _activeWindowId == win.id;
+                                if (win.maximized) {
+                                  return Positioned.fill(
+                                    child: GestureDetector(
+                                      onTap: () => _bringToFront(win.id),
+                                      child: MDIWindowWidget(
+                                        title: win.title,
+                                        maximized: true,
+                                        isActive: isActive,
+                                        onClose: () => _closeWindow(win.id),
+                                        onMaximize: () => _toggleMaximize(win.id),
+                                        onMinimize: () => _minimizeWindow(win.id),
+                                        onBringToFront: () => _bringToFront(win.id),
+                                        child: win.child,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Positioned(
+                                  left: win.offset.dx.clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
+                                  top: win.offset.dy.clamp(0.0, (mainAreaHeight - 50).clamp(0.0, double.infinity)),
+                                  child: GestureDetector(
+                                    onPanUpdate: (details) {
+                                      setState(() {
+                                        win.offset = Offset(
+                                          (win.offset.dx + details.delta.dx).clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
+                                          (win.offset.dy + details.delta.dy).clamp(0.0, (mainAreaHeight - 50).clamp(0.0, double.infinity)),
+                                        );
+                                      });
+                                    },
+                                    onTap: () => _bringToFront(win.id),
+                                    child: MDIWindowWidget(
+                                      title: win.title,
+                                      maximized: false,
+                                      isActive: isActive,
+                                      width: win.width.clamp(350.0, constraints.maxWidth > 350.0 ? constraints.maxWidth : 350.0),
+                                      height: win.height.clamp(250.0, mainAreaHeight > 250.0 ? mainAreaHeight : 250.0),
+                                      onClose: () => _closeWindow(win.id),
+                                      onMaximize: () => _toggleMaximize(win.id),
+                                      onMinimize: () => _minimizeWindow(win.id),
+                                      onBringToFront: () => _bringToFront(win.id),
+                                      onResize: (newSize) {
+                                        setState(() {
+                                          win.width = newSize.width;
+                                          win.height = newSize.height;
+                                        });
+                                      },
+                                      child: win.child,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                      ),
+                    ),
+                    // Minimized windows bar at bottom (classic .NET style)
+                    if (minimizedWindows.isNotEmpty)
+                      Container(
+                        height: minimizedBarHeight,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F2F5),
+                          border: Border(top: BorderSide(color: Colors.grey.shade300)),
                         ),
-                      );
-                    }
-                    return Positioned(
-                      left: win.offset.dx.clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
-                      top: win.offset.dy.clamp(0.0, (constraints.maxHeight - 50).clamp(0.0, double.infinity)),
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          setState(() {
-                                    win.offset = Offset(
-                                      (win.offset.dx + details.delta.dx).clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
-                                      (win.offset.dy + details.delta.dy).clamp(0.0, (constraints.maxHeight - 50).clamp(0.0, double.infinity)),
-                                    );
-                          });
-                        },
-                        onTap: () => _bringToFront(win.id),
-                        child: MDIWindowWidget(
-                          title: win.title,
-                          maximized: false,
-                          width: win.width.clamp(350.0, constraints.maxWidth > 350.0 ? constraints.maxWidth : 350.0),
-                          height: win.height.clamp(250.0, constraints.maxHeight > 250.0 ? constraints.maxHeight : 250.0),
-                          onClose: () => _closeWindow(win.id),
-                          onMaximize: () => _toggleMaximize(win.id),
-                          onMinimize: () => _minimizeWindow(win.id),
-                          onResize: (newSize) {
-                            setState(() {
-                              win.width = newSize.width;
-                              win.height = newSize.height;
-                            });
-                          },
-                          child: win.child,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: minimizedWindows.map((win) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              child: Material(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                                child: InkWell(
+                                  onTap: () => _restoreWindow(win.id),
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.open_in_new, size: 13, color: Color(0xFF1565C0)),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          win.title,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
-                    );
-                  }).toList(),
+                  ],
                 );
               },
             ),
@@ -377,6 +617,15 @@ class _MDIHomePageState extends State<MDIHomePage> {
       ],
     );
   }
+}
+
+class _MenuItemData {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool isChecked;
+
+  _MenuItemData(this.label, this.icon, this.onTap, {this.isChecked = false});
 }
 
 class _MDIWindow {
@@ -403,11 +652,13 @@ class _MDIWindow {
 class MDIWindowWidget extends StatelessWidget {
   final String title;
   final bool maximized;
+  final bool isActive;
   final double width;
   final double height;
   final VoidCallback onClose;
   final VoidCallback onMaximize;
   final VoidCallback onMinimize;
+  final VoidCallback? onBringToFront;
   final ValueChanged<Size>? onResize;
   final Widget? child;
 
@@ -418,6 +669,8 @@ class MDIWindowWidget extends StatelessWidget {
     required this.onClose,
     required this.onMaximize,
     required this.onMinimize,
+    this.isActive = false,
+    this.onBringToFront,
     this.onResize,
     this.width = 700,
     this.height = 500,
@@ -426,6 +679,10 @@ class MDIWindowWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final titleBarColor = isActive
+        ? const Color(0xFF0D47A1)
+        : const Color(0xFF1565C0);
+
     return SizedBox(
       width: maximized ? double.infinity : width,
       height: maximized ? double.infinity : height,
@@ -433,7 +690,7 @@ class MDIWindowWidget extends StatelessWidget {
         clipBehavior: Clip.hardEdge,
         children: [
           Material(
-            elevation: maximized ? 0 : 12,
+            elevation: maximized ? 0 : (isActive ? 16 : 8),
             borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Container(
@@ -443,48 +700,59 @@ class MDIWindowWidget extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1565C0),
-                      borderRadius: maximized
-                          ? BorderRadius.zero
-                          : const BorderRadius.vertical(top: Radius.circular(12)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.tab, color: Colors.white70, size: 16),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            title,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
+                  // Title bar with double-click and right-click support
+                  GestureDetector(
+                    onDoubleTap: onBringToFront != null ? onMaximize : null,
+                    onSecondaryTap: onBringToFront != null
+                        ? () => _showContextMenu(context)
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: titleBarColor,
+                        borderRadius: maximized
+                            ? BorderRadius.zero
+                            : const BorderRadius.vertical(top: Radius.circular(12)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.tab,
+                            color: isActive ? Colors.white : Colors.white70,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              title,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        _WindowButton(
-                          icon: Icons.minimize,
-                          onTap: onMinimize,
-                          tooltip: 'Minimize',
-                        ),
-                        _WindowButton(
-                          icon: maximized ? Icons.filter_none : Icons.crop_square,
-                          onTap: onMaximize,
-                          tooltip: maximized ? 'Restore' : 'Maximize',
-                        ),
-                        _WindowButton(
-                          icon: Icons.close,
-                          onTap: onClose,
-                          tooltip: 'Close',
-                          isClose: true,
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          _WindowButton(
+                            icon: Icons.minimize,
+                            onTap: onMinimize,
+                            tooltip: 'Minimize',
+                          ),
+                          _WindowButton(
+                            icon: maximized ? Icons.filter_none : Icons.crop_square,
+                            onTap: onMaximize,
+                            tooltip: maximized ? 'Restore' : 'Maximize',
+                          ),
+                          _WindowButton(
+                            icon: Icons.close,
+                            onTap: onClose,
+                            tooltip: 'Close',
+                            isClose: true,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   Expanded(
@@ -503,6 +771,61 @@ class MDIWindowWidget extends StatelessWidget {
           if (!maximized && onResize != null) ..._buildResizeHandles(),
         ],
       ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fill,
+      items: <PopupMenuEntry<dynamic>>[
+        PopupMenuItem(
+          enabled: false,
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: onMinimize,
+          child: const Row(
+            children: [
+              Icon(Icons.minimize, size: 18),
+              SizedBox(width: 8),
+              Text('Minimize', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: onMaximize,
+          child: Row(
+            children: [
+              Icon(maximized ? Icons.filter_none : Icons.crop_square, size: 18),
+              const SizedBox(width: 8),
+              Text(maximized ? 'Restore' : 'Maximize', style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: onClose,
+          child: const Row(
+            children: [
+              Icon(Icons.close, size: 18),
+              SizedBox(width: 8),
+              Text('Close', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          onTap: onBringToFront,
+          child: const Row(
+            children: [
+              Icon(Icons.open_in_full, size: 18),
+              SizedBox(width: 8),
+              Text('Bring to Front', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
