@@ -694,6 +694,7 @@ class MDIWindowWidget extends StatelessWidget {
             borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(12),
             clipBehavior: Clip.antiAlias,
             child: Container(
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(12),
@@ -725,7 +726,7 @@ class MDIWindowWidget extends StatelessWidget {
                             size: 16,
                           ),
                           const SizedBox(width: 6),
-                          Flexible(
+                          Expanded(
                             child: Text(
                               title,
                               overflow: TextOverflow.ellipsis,
@@ -736,7 +737,6 @@ class MDIWindowWidget extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 4),
                           _WindowButton(
                             icon: Icons.minimize,
                             onTap: onMinimize,
