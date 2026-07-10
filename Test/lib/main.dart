@@ -338,23 +338,23 @@ class _MDIHomePageState extends State<MDIHomePage> {
                       );
                     }
                     return Positioned(
-                      left: win.offset.dx.clamp(0.0, constraints.maxWidth - 100),
-                      top: win.offset.dy.clamp(0.0, constraints.maxHeight - 50),
+                      left: win.offset.dx.clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
+                      top: win.offset.dy.clamp(0.0, (constraints.maxHeight - 50).clamp(0.0, double.infinity)),
                       child: GestureDetector(
                         onPanUpdate: (details) {
                           setState(() {
-                            win.offset = Offset(
-                              (win.offset.dx + details.delta.dx).clamp(0.0, constraints.maxWidth - 100),
-                              (win.offset.dy + details.delta.dy).clamp(0.0, constraints.maxHeight - 50),
-                            );
+                                    win.offset = Offset(
+                                      (win.offset.dx + details.delta.dx).clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
+                                      (win.offset.dy + details.delta.dy).clamp(0.0, (constraints.maxHeight - 50).clamp(0.0, double.infinity)),
+                                    );
                           });
                         },
                         onTap: () => _bringToFront(win.id),
                         child: MDIWindowWidget(
                           title: win.title,
                           maximized: false,
-                          width: win.width.clamp(350.0, constraints.maxWidth),
-                          height: win.height.clamp(250.0, constraints.maxHeight),
+                          width: win.width.clamp(350.0, constraints.maxWidth > 350.0 ? constraints.maxWidth : 350.0),
+                          height: win.height.clamp(250.0, constraints.maxHeight > 250.0 ? constraints.maxHeight : 250.0),
                           onClose: () => _closeWindow(win.id),
                           onMaximize: () => _toggleMaximize(win.id),
                           onMinimize: () => _minimizeWindow(win.id),
@@ -1360,11 +1360,13 @@ class _ProductListWidgetState extends State<ProductListWidget> {
       );
     }
 
-    return Column(
-      children: [
-        _buildToolbar(),
-        Expanded(child: _buildForm()),
-      ],
+    return ClipRect(
+      child: Column(
+        children: [
+          _buildToolbar(),
+          Expanded(child: _buildForm()),
+        ],
+      ),
     );
   }
 
