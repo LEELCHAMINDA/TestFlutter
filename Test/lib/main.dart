@@ -708,6 +708,7 @@ class MDIWindowWidget extends StatelessWidget {
                         ? () => _showContextMenu(context)
                         : null,
                     child: Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                       height: 40,
                       decoration: BoxDecoration(
