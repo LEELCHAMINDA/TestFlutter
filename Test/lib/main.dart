@@ -699,6 +699,7 @@ class MDIWindowWidget extends StatelessWidget {
                 borderRadius: maximized ? BorderRadius.zero : BorderRadius.circular(12),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Title bar with double-click and right-click support
                   GestureDetector(
