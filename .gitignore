@@ -29,6 +29,8 @@ Test/web/icons/
 # API build artifacts
 TestAPI/bin/
 TestAPI/obj/
+TestAPI/TestAPI.http
+output.log
 
 # Misc
 *.log
