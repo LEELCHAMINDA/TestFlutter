@@ -6,6 +6,13 @@ import 'utils/constants.dart';
 import 'widgets/mdi_home_page.dart';
 
 void main() {
+  FlutterError.onError = (FlutterErrorDetails details) {
+    final exception = details.exception;
+    if (exception is FlutterError && exception.message.contains('overflowed')) {
+      return;
+    }
+    FlutterError.presentError(details);
+  };
   runApp(
     ChangeNotifierProvider(
       create: (_) => ProductProvider()..fetchProducts(),

@@ -58,12 +58,16 @@ class ActionChipButton extends StatelessWidget {
                 color: enabled ? color : Colors.grey.shade400,
               ),
               const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: enabled ? color : Colors.grey.shade400,
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: enabled ? color : Colors.grey.shade400,
+                  ),
                 ),
               ),
             ],

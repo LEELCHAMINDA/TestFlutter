@@ -245,37 +245,38 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
             color: Colors.white,
             border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
           ),
-          child: Row(
-            children: [
-              Icon(Icons.print, size: 20, color: Colors.blue.shade700),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Icon(Icons.print, size: 20, color: Colors.blue.shade700),
+                const SizedBox(width: 10),
+                Text(
                   'Print Preview — ${products.length} product${products.length == 1 ? '' : 's'}',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
                 ),
-              ),
-              const Spacer(),
-              ActionChipButton(
-                label: _isGenerating ? 'Generating...' : 'Download PDF',
-                icon: Icons.download,
-                color: Colors.orange.shade700,
-                onPressed: _isGenerating ? null : _downloadPdf,
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _isGenerating ? null : _printPdf,
-                icon: _isGenerating
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.print, size: 18),
-                label: const Text('Print'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1565C0),
-                  foregroundColor: Colors.white,
+                const SizedBox(width: 16),
+                ActionChipButton(
+                  label: _isGenerating ? 'Generating...' : 'Download PDF',
+                  icon: Icons.download,
+                  color: Colors.orange.shade700,
+                  onPressed: _isGenerating ? null : _downloadPdf,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _isGenerating ? null : _printPdf,
+                  icon: _isGenerating
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.print, size: 18),
+                  label: const Text('Print'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -337,7 +338,10 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),
-                    _buildPreviewTable(isMobile, products),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _buildPreviewTable(isMobile, products),
+                    ),
                   ],
                 ),
               ),
@@ -403,14 +407,14 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
   Widget _headerCell(String text, TextStyle style) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Text(text, style: style),
+      child: Text(text, style: style, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
   Widget _dataCell(String text, TextStyle style, {TextAlign align = TextAlign.left}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      child: Text(text, style: style, textAlign: align),
+      child: Text(text, style: style, textAlign: align, overflow: TextOverflow.ellipsis, maxLines: 1),
     );
   }
 
@@ -426,6 +430,8 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
         child: Text(
           isActive ? 'Active' : 'Inactive',
           textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,

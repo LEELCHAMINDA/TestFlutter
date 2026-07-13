@@ -22,16 +22,19 @@ class Sidebar extends StatelessWidget {
           if (isMobile)
             Container(
               padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 16, 16, 12),
-              child: const Row(
-                children: [
-                  Icon(Icons.inventory_2, color: Color(0xFF1565C0), size: 24),
-                  SizedBox(width: 10),
-                  Text(
-                    'Product Manager',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Color(0xFF1565C0)),
-                  ),
-                ],
+          child: const Row(
+            children: [
+              Icon(Icons.inventory_2, color: Color(0xFF1565C0), size: 24),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Product Manager',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Color(0xFF1565C0)),
+                ),
               ),
+            ],
+          ),
             ),
           Container(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),

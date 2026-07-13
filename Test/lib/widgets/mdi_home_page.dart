@@ -195,6 +195,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
 
   Widget _buildMenuBar() {
     final hasWindows = _windows.isNotEmpty;
+    final minimizedWindows = _windows.where((w) => w.minimized).toList();
 
     return Container(
       height: 28,
@@ -227,6 +228,56 @@ class _MDIHomePageState extends State<MDIHomePage> {
               isChecked: _activeWindowId == win.id && !win.minimized,
             )),
           ]),
+          if (minimizedWindows.isNotEmpty) ...[
+            const Spacer(),
+            Container(
+              width: 1,
+              height: 18,
+              color: Colors.grey.shade300,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                scrollDirection: Axis.horizontal,
+                children: minimizedWindows.map((win) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                      child: InkWell(
+                        onTap: () => _restoreWindow(win.id),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.open_in_new, size: 13, color: Color(0xFF1565C0)),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  win.title,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -298,9 +349,12 @@ class _MDIHomePageState extends State<MDIHomePage> {
               ),
             ),
           ] else
-            Text(
-              'Active: None',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            Flexible(
+              child: Text(
+                'Active: None',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              ),
             ),
           const Spacer(),
           Text(
@@ -398,8 +452,6 @@ class _MDIHomePageState extends State<MDIHomePage> {
   }
 
   Widget _buildDesktopBody(List<_MDIWindow> visibleWindows) {
-    final minimizedWindows = _windows.where((w) => w.minimized).toList();
-
     return Row(
       children: [
         AnimatedContainer(
@@ -407,7 +459,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
           width: _isMenuVisible ? _menuWidth : 0,
           clipBehavior: Clip.hardEdge,
           decoration: const BoxDecoration(),
-          child: _buildSidebar(),
+          child: _isMenuVisible ? _buildSidebar() : const SizedBox.shrink(),
         ),
         if (_isMenuVisible)
           MouseRegion(
@@ -447,13 +499,10 @@ class _MDIHomePageState extends State<MDIHomePage> {
                 }
 
                 final mdiAreaHeight = constraints.maxHeight;
-                final minimizedBarHeight = minimizedWindows.isNotEmpty ? 36.0 : 0.0;
-                final mainAreaHeight = mdiAreaHeight - minimizedBarHeight;
 
                 return Column(
                   children: [
-                    SizedBox(
-                      height: mainAreaHeight,
+                    Expanded(
                       child: Stack(
                         children: visibleWindows.isEmpty
                             ? [
@@ -488,13 +537,13 @@ class _MDIHomePageState extends State<MDIHomePage> {
                                 }
                                 return Positioned(
                                   left: win.offset.dx.clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
-                                  top: win.offset.dy.clamp(0.0, (mainAreaHeight - 50).clamp(0.0, double.infinity)),
+                                  top: win.offset.dy.clamp(0.0, (mdiAreaHeight - 50).clamp(0.0, double.infinity)),
                                   child: GestureDetector(
                                     onPanUpdate: (details) {
                                       setState(() {
                                         win.offset = Offset(
                                           (win.offset.dx + details.delta.dx).clamp(0.0, (constraints.maxWidth - 100).clamp(0.0, double.infinity)),
-                                          (win.offset.dy + details.delta.dy).clamp(0.0, (mainAreaHeight - 50).clamp(0.0, double.infinity)),
+                                          (win.offset.dy + details.delta.dy).clamp(0.0, (mdiAreaHeight - 50).clamp(0.0, double.infinity)),
                                         );
                                       });
                                     },
@@ -504,7 +553,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
                                       maximized: false,
                                       isActive: isActive,
                                       width: win.width.clamp(350.0, constraints.maxWidth > 350.0 ? constraints.maxWidth : 350.0),
-                                      height: win.height.clamp(250.0, mainAreaHeight > 250.0 ? mainAreaHeight : 250.0),
+                                      height: win.height.clamp(250.0, mdiAreaHeight > 250.0 ? mdiAreaHeight : 250.0),
                                       onClose: () => _closeWindow(win.id),
                                       onMaximize: () => _toggleMaximize(win.id),
                                       onMinimize: () => _minimizeWindow(win.id),
@@ -523,49 +572,6 @@ class _MDIHomePageState extends State<MDIHomePage> {
                               }).toList(),
                       ),
                     ),
-                    if (minimizedWindows.isNotEmpty)
-                      Container(
-                        height: minimizedBarHeight,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0F2F5),
-                          border: Border(top: BorderSide(color: Colors.grey.shade300)),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: minimizedWindows.map((win) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 3),
-                              child: Material(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                                child: InkWell(
-                                  onTap: () => _restoreWindow(win.id),
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.grey.shade300),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.open_in_new, size: 13, color: Color(0xFF1565C0)),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          win.title,
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
                   ],
                 );
               },

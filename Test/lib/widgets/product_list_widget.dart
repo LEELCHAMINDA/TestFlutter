@@ -527,8 +527,7 @@ class ProductListWidget extends StatelessWidget {
                       _buildField(
                         label: 'Status',
                         child: Container(
-                          height: 48,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(8),
@@ -637,40 +636,39 @@ class ProductListWidget extends StatelessWidget {
                           Expanded(
                             child: _buildField(
                               label: 'Status',
-                              child: Container(
-                                height: 48,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Colors.white,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      provider.isActive ? Icons.check_circle : Icons.cancel,
-                                      size: 16,
-                                      color: provider.isActive ? Colors.green.shade600 : Colors.red.shade400,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      provider.isActive ? 'Active' : 'Inactive',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.grey.shade800,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.white,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        provider.isActive ? Icons.check_circle : Icons.cancel,
+                                        size: 16,
+                                        color: provider.isActive ? Colors.green.shade600 : Colors.red.shade400,
                                       ),
-                                    ),
-                                    const Spacer(),
-                                    if (provider.isEditing)
-                                      Switch(
-                                        value: provider.isActive,
-                                        onChanged: (value) => provider.setActive(value),
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        provider.isActive ? 'Active' : 'Inactive',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey.shade800,
+                                        ),
                                       ),
-                                  ],
+                                      const Spacer(),
+                                      if (provider.isEditing)
+                                        Switch(
+                                          value: provider.isActive,
+                                          onChanged: (value) => provider.setActive(value),
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
                             ),
                           ),
                         ],
