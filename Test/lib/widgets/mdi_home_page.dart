@@ -217,7 +217,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
             null,
             ..._windows.map((win) => _MenuItemData(
               win.title,
-              win.minimized ? Icons.open_in_new : Icons.tab,
+              win.minimized ? Icons.minimize : Icons.tab,
               () {
                 if (win.minimized) {
                   _restoreWindow(win.id);
@@ -228,55 +228,47 @@ class _MDIHomePageState extends State<MDIHomePage> {
               isChecked: _activeWindowId == win.id && !win.minimized,
             )),
           ]),
+          const Spacer(),
           if (minimizedWindows.isNotEmpty) ...[
-            const Spacer(),
             Container(
               width: 1,
               height: 18,
               color: Colors.grey.shade300,
               margin: const EdgeInsets.symmetric(horizontal: 4),
             ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                scrollDirection: Axis.horizontal,
-                children: minimizedWindows.map((win) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Material(
-                      color: Colors.white,
+            ...minimizedWindows.map((win) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                child: InkWell(
+                  onTap: () => _restoreWindow(win.id),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
-                      child: InkWell(
-                        onTap: () => _restoreWindow(win.id),
-                        borderRadius: BorderRadius.circular(4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.open_in_new, size: 13, color: Color(0xFF1565C0)),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  win.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.minimize, size: 13, color: Color(0xFF1565C0)),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            win.title,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  );
-                }).toList(),
+                  ),
+                ),
               ),
-            ),
+            )),
           ],
         ],
       ),
