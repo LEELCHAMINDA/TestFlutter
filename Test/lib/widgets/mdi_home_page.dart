@@ -241,30 +241,41 @@ class _MDIHomePageState extends State<MDIHomePage> {
               child: Material(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(4),
-                child: InkWell(
-                  onTap: () => _restoreWindow(win.id),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.minimize, size: 13, color: Color(0xFF1565C0)),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            win.title,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                          ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () => _restoreWindow(win.id),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.minimize, size: 13, color: Color(0xFF1565C0)),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                win.title,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () => _closeWindow(win.id),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Icon(Icons.close, size: 14, color: Colors.grey.shade600),
+                      ),
+                    ],
                   ),
                 ),
               ),
