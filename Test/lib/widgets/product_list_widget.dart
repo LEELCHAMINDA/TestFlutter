@@ -62,7 +62,8 @@ class ProductListWidget extends StatelessWidget {
 
   void _showSearchDialog(BuildContext context, ProductProvider provider) {
     String searchQuery = '';
-    List<Product> filteredProducts = List.from(provider.products);
+    List<Product> searchResults = [];
+    bool isSearching = false;
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = (screenWidth * 0.85).clamp(300.0, 500.0);
 
@@ -95,78 +96,106 @@ class ProductListWidget extends StatelessWidget {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
-                      onChanged: (value) {
-                        searchQuery = value.toLowerCase();
+                      onChanged: (value) async {
+                        searchQuery = value;
+                        if (value.trim().isEmpty) {
+                          setDialogState(() {
+                            searchResults = [];
+                            isSearching = false;
+                          });
+                          return;
+                        }
                         setDialogState(() {
-                          filteredProducts = provider.products
-                              .where((p) => (p.name ?? '').toLowerCase().contains(searchQuery))
-                              .toList();
+                          isSearching = true;
                         });
+                        await Future.delayed(const Duration(milliseconds: 300));
+                        if (searchQuery != value) return;
+                        try {
+                          final results = await provider.apiService.searchProducts(value);
+                          if (searchQuery == value && context.mounted) {
+                            setDialogState(() {
+                              searchResults = results;
+                              isSearching = false;
+                            });
+                          }
+                        } catch (e) {
+                          if (searchQuery == value && context.mounted) {
+                            setDialogState(() {
+                              searchResults = [];
+                              isSearching = false;
+                            });
+                          }
+                        }
                       },
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: filteredProducts.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.search_off, size: 40, color: Colors.grey.shade300),
-                                  const SizedBox(height: 8),
-                                  Text('No products found', style: TextStyle(color: Colors.grey.shade500)),
-                                ],
-                              ),
-                            )
-                          : ListView.separated(
-                              itemCount: filteredProducts.length,
-                              separatorBuilder: (context, index) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final product = filteredProducts[index];
-                                return ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                                  leading: CircleAvatar(
-                                    radius: 16,
-                                    backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.1),
-                                    child: Text(
-                                      (product.name?.isNotEmpty == true ? product.name![0] : '?').toUpperCase(),
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1565C0)),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    product.name ?? '',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontWeight: FontWeight.w500),
-                                  ),
-                                  subtitle: Text(
-                                    '\$${product.price.toStringAsFixed(2)}',
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(color: Colors.grey.shade600),
-                                  ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: product.isActive ? Colors.green.shade50 : Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'Stock: ${product.stock}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: product.isActive ? Colors.green.shade700 : Colors.red.shade700,
+                      child: isSearching
+                          ? const Center(child: CircularProgressIndicator())
+                          : searchResults.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.search_off, size: 40, color: Colors.grey.shade300),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        searchQuery.isEmpty ? 'Type to search...' : 'No products found',
+                                        style: TextStyle(color: Colors.grey.shade500),
                                       ),
-                                    ),
+                                    ],
                                   ),
-                                  onTap: () {
-                                    final originalIndex = provider.products.indexWhere((p) => p.id == product.id);
-                                    if (originalIndex != -1) {
-                                      provider.navigateToIndex(originalIndex);
-                                    }
-                                    Navigator.pop(context);
+                                )
+                              : ListView.separated(
+                                  itemCount: searchResults.length,
+                                  separatorBuilder: (context, index) => const Divider(height: 1),
+                                  itemBuilder: (context, index) {
+                                    final product = searchResults[index];
+                                    return ListTile(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                                      leading: CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                                        child: Text(
+                                          (product.name?.isNotEmpty == true ? product.name![0] : '?').toUpperCase(),
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1565C0)),
+                                        ),
+                                      ),
+                                      title: Text(
+                                        product.name ?? '',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.w500),
+                                      ),
+                                      subtitle: Text(
+                                        '\$${product.price.toStringAsFixed(2)}',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.grey.shade600),
+                                      ),
+                                      trailing: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: product.isActive ? Colors.green.shade50 : Colors.red.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          'Stock: ${product.stock}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: product.isActive ? Colors.green.shade700 : Colors.red.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        final originalIndex = provider.productIds.indexOf(product.id);
+                                        if (originalIndex != -1) {
+                                          provider.navigateToIndex(originalIndex);
+                                        }
+                                        Navigator.pop(context);
+                                      },
+                                    );
                                   },
-                                );
-                              },
-                            ),
+                                ),
                     ),
                   ],
                 ),
@@ -185,7 +214,7 @@ class ProductListWidget extends StatelessWidget {
   }
 
   Future<void> _handleDelete(BuildContext context, ProductProvider provider) async {
-    if (provider.products.isEmpty) return;
+    if (provider.productIds.isEmpty) return;
     final product = provider.currentProduct;
     if (product == null) return;
 
@@ -292,7 +321,7 @@ class ProductListWidget extends StatelessWidget {
       );
     }
 
-    if (provider.products.isEmpty) {
+    if (provider.productIds.isEmpty) {
       return Center(
         child: Card(
           margin: const EdgeInsets.all(32),
@@ -338,7 +367,7 @@ class ProductListWidget extends StatelessWidget {
   }
 
   Widget _buildToolbar(BuildContext context, ProductProvider provider, GlobalKey<FormState> formKey) {
-    final bool hasData = provider.products.isNotEmpty;
+    final bool hasData = provider.productIds.isNotEmpty;
     final isMobile = Responsive.isMobile(context);
 
     return Container(

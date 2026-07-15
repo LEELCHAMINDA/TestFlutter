@@ -18,10 +18,10 @@ public class ProductRepository : IProductRepository
         return new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
     }
 
-    public async Task<IEnumerable<Product>> GetAllProducts(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<int>> GetAllProductIds(CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
-        return await connection.QueryAsync<Product>(
+        return await connection.QueryAsync<int>(
             "[usp_GetAllProducts]",
             commandType: System.Data.CommandType.StoredProcedure,
             commandTimeout: 30);
@@ -34,6 +34,18 @@ public class ProductRepository : IProductRepository
         parameters.Add("@Id", id);
         return await connection.QueryFirstOrDefaultAsync<Product>(
             "[usp_GetProductById]",
+            parameters,
+            commandType: System.Data.CommandType.StoredProcedure,
+            commandTimeout: 30);
+    }
+
+    public async Task<IEnumerable<Product>> SearchProducts(string searchTerm, CancellationToken cancellationToken = default)
+    {
+        using var connection = CreateConnection();
+        var parameters = new DynamicParameters();
+        parameters.Add("@SearchTerm", searchTerm);
+        return await connection.QueryAsync<Product>(
+            "[usp_SearchProducts]",
             parameters,
             commandType: System.Data.CommandType.StoredProcedure,
             commandTimeout: 30);

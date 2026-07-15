@@ -1,9 +1,20 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/environment.dart';
 import '../models/product.dart';
+
+List<int> _parseIds(String jsonStr) {
+  final List<dynamic> data = json.decode(jsonStr);
+  return data.map((e) => e as int).toList();
+}
+
+List<Product> _parseProducts(String jsonStr) {
+  final List<dynamic> data = json.decode(jsonStr);
+  return data.map((e) => Product.fromJson(e)).toList();
+}
 
 class ProductApiService {
   ProductApiService({
@@ -15,13 +26,21 @@ class ProductApiService {
   final String baseUrl;
   final http.Client _client;
 
-  Future<List<Product>> getAllProducts() async {
+  Future<List<int>> getAllProductIds() async {
     final response = await _client.get(Uri.parse('$baseUrl/api/products'));
     if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Product.fromJson(json)).toList();
+      return compute(_parseIds, response.body);
     }
-    throw ApiException('Failed to load products', response.statusCode);
+    throw ApiException('Failed to load product IDs', response.statusCode);
+  }
+
+  Future<List<Product>> searchProducts(String searchTerm) async {
+    final uri = Uri.parse('$baseUrl/api/products/search').replace(queryParameters: {'term': searchTerm});
+    final response = await _client.get(uri);
+    if (response.statusCode == 200) {
+      return compute(_parseProducts, response.body);
+    }
+    throw ApiException('Failed to search products', response.statusCode);
   }
 
   Future<Product?> getProductById(int id) async {
@@ -41,7 +60,7 @@ class ProductApiService {
     );
     if (response.statusCode == 201) {
       final data = json.decode(response.body);
-      return data['Id'] as int;
+      return data['id'] as int? ?? 0;
     }
     throw ApiException('Failed to create product', response.statusCode);
   }

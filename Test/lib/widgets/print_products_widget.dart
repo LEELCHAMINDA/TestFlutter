@@ -9,15 +9,39 @@ import '../providers/product_provider.dart';
 import '../utils/responsive.dart';
 import 'common_widgets.dart';
 
-class PrintProductsWidget extends StatelessWidget {
+class PrintProductsWidget extends StatefulWidget {
   const PrintProductsWidget({super.key});
+
+  @override
+  State<PrintProductsWidget> createState() => _PrintProductsWidgetState();
+}
+
+class _PrintProductsWidgetState extends State<PrintProductsWidget> {
+  List<Product> _products = [];
+  bool _isLoadingProducts = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final provider = context.read<ProductProvider>();
+    final products = await provider.fetchAllProducts();
+    if (mounted) {
+      setState(() {
+        _products = products;
+        _isLoadingProducts = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProductProvider>();
-    final products = provider.products;
 
-    if (provider.isLoading) {
+    if (provider.isLoading || _isLoadingProducts) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -44,7 +68,10 @@ class PrintProductsWidget extends StatelessWidget {
                 Text(provider.error!, textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 FilledButton.icon(
-                  onPressed: () => provider.fetchProducts(),
+                  onPressed: () {
+                    setState(() => _isLoadingProducts = true);
+                    _loadProducts();
+                  },
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Retry'),
                 ),
@@ -55,7 +82,7 @@ class PrintProductsWidget extends StatelessWidget {
       );
     }
 
-    if (products.isEmpty) {
+    if (_products.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -79,7 +106,7 @@ class PrintProductsWidget extends StatelessWidget {
     final isMobile = Responsive.isMobile(context);
 
     return _PrintProductsContent(
-      products: products,
+      products: _products,
       isMobile: isMobile,
     );
   }

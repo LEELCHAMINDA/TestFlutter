@@ -49,10 +49,8 @@ app.MapHealthChecks("/health");
 
 app.MapGet("/api/products", async (IProductRepository repo, CancellationToken ct) =>
 {
-    var products = await repo.GetAllProducts(ct);
-    var response = products.Select(p => new ProductResponse(
-        p.Id, p.Name, p.Price, p.Description, p.Stock, p.IsActive, p.CreatedDate));
-    return Results.Ok(response);
+    var ids = await repo.GetAllProductIds(ct);
+    return Results.Ok(ids);
 });
 
 app.MapGet("/api/products/{id}", async (int id, IProductRepository repo, CancellationToken ct) =>
@@ -62,6 +60,14 @@ app.MapGet("/api/products/{id}", async (int id, IProductRepository repo, Cancell
         ? Results.Ok(new ProductResponse(product.Id, product.Name, product.Price,
             product.Description, product.Stock, product.IsActive, product.CreatedDate))
         : Results.NotFound();
+});
+
+app.MapGet("/api/products/search", async (string term, IProductRepository repo, CancellationToken ct) =>
+{
+    var products = await repo.SearchProducts(term, ct);
+    var response = products.Select(p => new ProductResponse(
+        p.Id, p.Name, p.Price, p.Description, p.Stock, p.IsActive, p.CreatedDate));
+    return Results.Ok(response);
 });
 
 app.MapPost("/api/products", async (CreateProductRequest request,
