@@ -40,4 +40,24 @@ class Product {
       'createdDate': createdDate.toIso8601String(),
     };
   }
+
+  Product copyWith({
+    int? id,
+    String? name,
+    double? price,
+    String? description,
+    int? stock,
+    bool? isActive,
+    DateTime? createdDate,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      price: price ?? this.price,
+      description: description ?? this.description,
+      stock: stock ?? this.stock,
+      isActive: isActive ?? this.isActive,
+      createdDate: createdDate ?? this.createdDate,
+    );
+  }
 }

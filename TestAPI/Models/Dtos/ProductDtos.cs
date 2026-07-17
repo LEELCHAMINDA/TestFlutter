@@ -25,13 +25,3 @@ public record UpdateProductRequest(
     int Stock,
     bool IsActive
 );
-
-public record PaginatedProductResponse(
-    IEnumerable<ProductResponse> Items,
-    int TotalCount,
-    int PageNumber,
-    int PageSize,
-    int TotalPages,
-    bool HasPreviousPage,
-    bool HasNextPage
-);

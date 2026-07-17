@@ -18,10 +18,10 @@ public class ProductRepository : IProductRepository
         return new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
     }
 
-    public async Task<IEnumerable<int>> GetAllProductIds(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Product>> GetAllProducts(CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
-        return await connection.QueryAsync<int>(
+        return await connection.QueryAsync<Product>(
             "[usp_GetAllProducts]",
             commandType: System.Data.CommandType.StoredProcedure,
             commandTimeout: 30);

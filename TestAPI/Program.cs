@@ -1,4 +1,7 @@
+using System.IO.Compression;
 using FluentValidation;
+using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.AspNetCore.ResponseCompression;
 using Serilog;
 using TestAPI.Middleware;
 using TestAPI.Models;
@@ -30,13 +33,40 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes;
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+
 builder.Services.AddHealthChecks()
     .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!);
+
+builder.Services.AddOutputCache(options =>
+{
+    options.AddBasePolicy(policy => policy.Expire(TimeSpan.FromSeconds(30)));
+    options.AddPolicy("ProductsCache", policy =>
+        policy.Expire(TimeSpan.FromSeconds(30))
+              .SetVaryByQuery("pageNumber", "pageSize", "term")
+              .Tag("products"));
+});
 
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+app.UseResponseCompression();
+app.UseOutputCache();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors("ApiCorsPolicy");
 
@@ -49,26 +79,25 @@ app.MapHealthChecks("/health");
 
 app.MapGet("/api/products", async (IProductRepository repo, CancellationToken ct) =>
 {
-    var ids = await repo.GetAllProductIds(ct);
-    return Results.Ok(ids);
-});
+    var products = await repo.GetAllProducts(ct);
+    var response = products.Select(p => ToResponse(p));
+    return Results.Ok(response);
+}).CacheOutput("ProductsCache");
 
 app.MapGet("/api/products/{id}", async (int id, IProductRepository repo, CancellationToken ct) =>
 {
     var product = await repo.GetProductById(id, ct);
     return product is not null
-        ? Results.Ok(new ProductResponse(product.Id, product.Name, product.Price,
-            product.Description, product.Stock, product.IsActive, product.CreatedDate))
+        ? Results.Ok(ToResponse(product))
         : Results.NotFound();
-});
+}).CacheOutput("ProductsCache");
 
 app.MapGet("/api/products/search", async (string term, IProductRepository repo, CancellationToken ct) =>
 {
     var products = await repo.SearchProducts(term, ct);
-    var response = products.Select(p => new ProductResponse(
-        p.Id, p.Name, p.Price, p.Description, p.Stock, p.IsActive, p.CreatedDate));
+    var response = products.Select(p => ToResponse(p));
     return Results.Ok(response);
-});
+}).CacheOutput("ProductsCache");
 
 app.MapPost("/api/products", async (CreateProductRequest request,
     IProductRepository repo, IValidator<CreateProductRequest> validator, CancellationToken ct) =>
@@ -97,10 +126,6 @@ app.MapPut("/api/products/{id}", async (int id, UpdateProductRequest request,
     if (!validationResult.IsValid)
         return Results.ValidationProblem(validationResult.ToDictionary());
 
-    var existing = await repo.GetProductById(id, ct);
-    if (existing is null)
-        return Results.NotFound();
-
     var product = new Product
     {
         Id = id,
@@ -111,18 +136,23 @@ app.MapPut("/api/products/{id}", async (int id, UpdateProductRequest request,
         IsActive = request.IsActive
     };
 
-    await repo.UpdateProduct(product, ct);
+    var affected = await repo.UpdateProduct(product, ct);
+    if (affected == 0)
+        return Results.NotFound();
+
     return Results.NoContent();
 });
 
 app.MapDelete("/api/products/{id}", async (int id, IProductRepository repo, CancellationToken ct) =>
 {
-    var existing = await repo.GetProductById(id, ct);
-    if (existing is null)
+    var affected = await repo.DeleteProduct(id, ct);
+    if (affected == 0)
         return Results.NotFound();
 
-    await repo.DeleteProduct(id, ct);
     return Results.NoContent();
 });
+
+static ProductResponse ToResponse(Product p) =>
+    new(p.Id, p.Name, p.Price, p.Description, p.Stock, p.IsActive, p.CreatedDate);
 
 app.Run();

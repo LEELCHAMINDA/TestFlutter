@@ -187,7 +187,7 @@ class ProductListWidget extends StatelessWidget {
                                         ),
                                       ),
                                       onTap: () {
-                                        final originalIndex = provider.productIds.indexOf(product.id);
+                                        final originalIndex = provider.products.indexWhere((p) => p.id == product.id);
                                         if (originalIndex != -1) {
                                           provider.navigateToIndex(originalIndex);
                                         }
@@ -214,7 +214,7 @@ class ProductListWidget extends StatelessWidget {
   }
 
   Future<void> _handleDelete(BuildContext context, ProductProvider provider) async {
-    if (provider.productIds.isEmpty) return;
+    if (provider.products.isEmpty) return;
     final product = provider.currentProduct;
     if (product == null) return;
 
@@ -321,7 +321,7 @@ class ProductListWidget extends StatelessWidget {
       );
     }
 
-    if (provider.productIds.isEmpty) {
+    if (provider.products.isEmpty) {
       return Center(
         child: Card(
           margin: const EdgeInsets.all(32),
@@ -367,7 +367,7 @@ class ProductListWidget extends StatelessWidget {
   }
 
   Widget _buildToolbar(BuildContext context, ProductProvider provider, GlobalKey<FormState> formKey) {
-    final bool hasData = provider.productIds.isNotEmpty;
+    final bool hasData = provider.products.isNotEmpty;
     final isMobile = Responsive.isMobile(context);
 
     return Container(

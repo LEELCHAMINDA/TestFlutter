@@ -17,8 +17,10 @@ class ProductProvider extends ChangeNotifier {
   final stockController = TextEditingController();
   final descriptionController = TextEditingController();
 
-  List<int> _productIds = [];
+  List<Product> _products = [];
   Product? _currentProduct;
+  Product? _priorProduct;
+  int _priorIndex = 0;
   bool _isLoading = true;
   bool _isLoadingRecord = false;
   String? _error;
@@ -28,7 +30,7 @@ class ProductProvider extends ChangeNotifier {
   bool _isSaving = false;
   bool _isActive = true;
 
-  List<int> get productIds => _productIds;
+  List<Product> get products => _products;
   Product? get currentProduct => _currentProduct;
   bool get isLoading => _isLoading;
   bool get isLoadingRecord => _isLoadingRecord;
@@ -38,10 +40,10 @@ class ProductProvider extends ChangeNotifier {
   bool get isNewRecord => _isNewRecord;
   bool get isSaving => _isSaving;
   bool get isActive => _isActive;
-  bool get canNavigate => _productIds.isNotEmpty && !_isEditing && !_isLoadingRecord;
+  bool get canNavigate => _products.isNotEmpty && !_isEditing && !_isLoadingRecord;
   bool get isFirst => _currentIndex == 0;
-  bool get isLast => _currentIndex == _productIds.length - 1;
-  String get recordPosition => _productIds.isEmpty ? '0 / 0' : '${_currentIndex + 1} / ${_productIds.length}';
+  bool get isLast => _currentIndex == _products.length - 1;
+  String get recordPosition => _products.isEmpty ? '0 / 0' : '${_currentIndex + 1} / ${_products.length}';
 
   @override
   void dispose() {
@@ -71,35 +73,22 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _fetchProductAtIndex(int index) async {
-    if (index < 0 || index >= _productIds.length) return;
-    _isLoadingRecord = true;
-    notifyListeners();
-
-    try {
-      final id = _productIds[index];
-      _currentProduct = await _apiService.getProductById(id);
-      _currentIndex = index;
-      _isLoadingRecord = false;
-      _loadCurrentRecord();
-    } catch (e) {
-      _isLoadingRecord = false;
-      _currentProduct = null;
-      _currentIndex = index;
-      _loadCurrentRecord();
-    }
+  void _selectProductAtIndex(int index) {
+    if (index < 0 || index >= _products.length) return;
+    _currentProduct = _products[index];
+    _currentIndex = index;
+    _isLoadingRecord = false;
+    _loadCurrentRecord();
   }
 
   Future<OperationResult> fetchProducts() async {
     try {
-      _productIds = await _apiService.getAllProductIds();
+      _products = await _apiService.getAllProducts();
       _isLoading = false;
       _error = null;
-      if (_productIds.isNotEmpty && _currentIndex >= _productIds.length) {
-        _currentIndex = _productIds.length - 1;
-      }
-      if (_productIds.isNotEmpty) {
-        await _fetchProductAtIndex(_currentIndex);
+      if (_products.isNotEmpty) {
+        if (_currentIndex >= _products.length) _currentIndex = _products.length - 1;
+        _selectProductAtIndex(_currentIndex);
       } else {
         _currentProduct = null;
         _loadCurrentRecord();
@@ -114,34 +103,36 @@ class ProductProvider extends ChangeNotifier {
   }
 
   void goToFirst() {
-    if (_productIds.isEmpty || _currentIndex == 0) return;
+    if (_products.isEmpty || _currentIndex == 0) return;
     _isEditing = false;
     _isNewRecord = false;
-    _fetchProductAtIndex(0);
+    _selectProductAtIndex(0);
   }
 
   void goToPrevious() {
-    if (_productIds.isEmpty || _currentIndex == 0) return;
+    if (_products.isEmpty || _currentIndex == 0) return;
     _isEditing = false;
     _isNewRecord = false;
-    _fetchProductAtIndex(_currentIndex - 1);
+    _selectProductAtIndex(_currentIndex - 1);
   }
 
   void goToNext() {
-    if (_productIds.isEmpty || _currentIndex == _productIds.length - 1) return;
+    if (_products.isEmpty || _currentIndex == _products.length - 1) return;
     _isEditing = false;
     _isNewRecord = false;
-    _fetchProductAtIndex(_currentIndex + 1);
+    _selectProductAtIndex(_currentIndex + 1);
   }
 
   void goToLast() {
-    if (_productIds.isEmpty || _currentIndex == _productIds.length - 1) return;
+    if (_products.isEmpty || _currentIndex == _products.length - 1) return;
     _isEditing = false;
     _isNewRecord = false;
-    _fetchProductAtIndex(_productIds.length - 1);
+    _selectProductAtIndex(_products.length - 1);
   }
 
   void addNew() {
+    _priorProduct = _currentProduct;
+    _priorIndex = _currentIndex;
     _isNewRecord = true;
     _isEditing = true;
     _currentProduct = null;
@@ -162,7 +153,12 @@ class ProductProvider extends ChangeNotifier {
   void undoChanges() {
     _isEditing = false;
     _isNewRecord = false;
-    if (_productIds.isNotEmpty && _currentProduct != null) {
+    if (_priorProduct != null) {
+      _currentProduct = _priorProduct;
+      _currentIndex = _priorIndex.clamp(0, _products.length - 1);
+      _priorProduct = null;
+      _loadCurrentRecord();
+    } else if (_products.isNotEmpty && _currentProduct != null) {
       _loadCurrentRecord();
     } else {
       notifyListeners();
@@ -175,7 +171,7 @@ class ProductProvider extends ChangeNotifier {
   }
 
   void navigateToIndex(int index) {
-    _fetchProductAtIndex(index);
+    _selectProductAtIndex(index);
   }
 
   Future<List<Product>> fetchAllProducts() async {
@@ -188,17 +184,17 @@ class ProductProvider extends ChangeNotifier {
 
   Future<OperationResult> saveRecord() async {
     if (_isSaving) return const OperationResult(false, 'Already saving');
-    
+
     if (nameController.text.trim().isEmpty) {
       return const OperationResult(false, 'Product name is required');
     }
-    
+
     _isSaving = true;
     notifyListeners();
 
     try {
       final isNew = _isNewRecord;
-      
+
       final product = Product(
         id: isNew ? 0 : (_currentProduct?.id ?? 0),
         name: nameController.text.trim(),
@@ -210,20 +206,14 @@ class ProductProvider extends ChangeNotifier {
       );
 
       if (_isNewRecord) {
+        final newId = await _apiService.createProduct(product);
+        final created = product.copyWith(id: newId);
+        _products.add(created);
         _isEditing = false;
         _isNewRecord = false;
         _isSaving = false;
-        notifyListeners();
-
-        try {
-          final newId = await _apiService.createProduct(product);
-          _productIds.add(newId);
-          await _fetchProductAtIndex(_productIds.length - 1);
-          return const OperationResult(true, 'Product created successfully');
-        } catch (e) {
-          notifyListeners();
-          return OperationResult(false, 'Error creating product: $e');
-        }
+        _selectProductAtIndex(_products.length - 1);
+        return const OperationResult(true, 'Product created successfully');
       } else {
         final originalProduct = _currentProduct;
         _currentProduct = product;
@@ -234,6 +224,7 @@ class ProductProvider extends ChangeNotifier {
 
         try {
           await _apiService.updateProduct(product);
+          _products[_currentIndex] = product;
           return const OperationResult(true, 'Product updated successfully');
         } catch (e) {
           _currentProduct = originalProduct;
@@ -249,21 +240,22 @@ class ProductProvider extends ChangeNotifier {
   }
 
   Future<OperationResult> deleteRecord() async {
-    if (_productIds.isEmpty) return const OperationResult(false, 'No products to delete');
-    if (_currentIndex < 0 || _currentIndex >= _productIds.length) {
+    if (_products.isEmpty) return const OperationResult(false, 'No products to delete');
+    if (_currentIndex < 0 || _currentIndex >= _products.length) {
       return const OperationResult(false, 'Invalid record index');
     }
 
-    final deletedId = _productIds[_currentIndex];
+    final deletedProduct = _products[_currentIndex];
+    final deletedId = deletedProduct.id;
     final deletedIndex = _currentIndex;
-    
-    _productIds.removeAt(deletedIndex);
-    if (_currentIndex >= _productIds.length && _currentIndex > 0) {
-      _currentIndex = _productIds.length - 1;
+
+    _products.removeAt(deletedIndex);
+    if (_currentIndex >= _products.length && _currentIndex > 0) {
+      _currentIndex = _products.length - 1;
     }
-    
-    if (_productIds.isNotEmpty) {
-      await _fetchProductAtIndex(_currentIndex);
+
+    if (_products.isNotEmpty) {
+      _selectProductAtIndex(_currentIndex);
     } else {
       _currentProduct = null;
       _loadCurrentRecord();
@@ -273,8 +265,8 @@ class ProductProvider extends ChangeNotifier {
       await _apiService.deleteProduct(deletedId);
       return const OperationResult(true, 'Product deleted successfully');
     } catch (e) {
-      _productIds.insert(deletedIndex, deletedId);
-      await _fetchProductAtIndex(deletedIndex);
+      _products.insert(deletedIndex, deletedProduct);
+      _selectProductAtIndex(deletedIndex);
       return OperationResult(false, 'Error deleting product: $e');
     }
   }
