@@ -78,7 +78,7 @@ public class ProductRepository : IProductRepository
         parameters.Add("@Description", product.Description);
         parameters.Add("@Stock", product.Stock);
         parameters.Add("@IsActive", product.IsActive);
-        return await connection.ExecuteAsync(
+        return await connection.ExecuteScalarAsync<int>(
             "[usp_UpdateProduct]",
             parameters,
             commandType: System.Data.CommandType.StoredProcedure,
@@ -90,7 +90,7 @@ public class ProductRepository : IProductRepository
         using var connection = CreateConnection();
         var parameters = new DynamicParameters();
         parameters.Add("@Id", id);
-        return await connection.ExecuteAsync(
+        return await connection.ExecuteScalarAsync<int>(
             "[usp_DeleteProduct]",
             parameters,
             commandType: System.Data.CommandType.StoredProcedure,
