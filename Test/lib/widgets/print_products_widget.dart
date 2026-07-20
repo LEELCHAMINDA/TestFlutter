@@ -19,6 +19,8 @@ class PrintProductsWidget extends StatefulWidget {
 class _PrintProductsWidgetState extends State<PrintProductsWidget> {
   List<Product> _products = [];
   bool _isLoadingProducts = true;
+  String? _loadError;
+  bool _hasLoaded = false;
 
   @override
   void initState() {
@@ -26,14 +28,39 @@ class _PrintProductsWidgetState extends State<PrintProductsWidget> {
     _loadProducts();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasLoaded && !_isLoadingProducts && _products.isEmpty) {
+      _loadProducts();
+    }
+  }
+
   Future<void> _loadProducts() async {
-    final provider = context.read<ProductProvider>();
-    final products = await provider.fetchAllProducts();
-    if (mounted) {
-      setState(() {
-        _products = products;
-        _isLoadingProducts = false;
-      });
+    if (!mounted) return;
+    _hasLoaded = true;
+    setState(() {
+      _isLoadingProducts = true;
+      _loadError = null;
+    });
+    try {
+      final provider = context.read<ProductProvider>();
+      final products = await provider.fetchAllProducts();
+      if (mounted) {
+        setState(() {
+          _products = products;
+          _isLoadingProducts = false;
+          _loadError = products.isEmpty ? 'No products found. Check if the API is running.' : null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _products = [];
+          _isLoadingProducts = false;
+          _loadError = 'Failed to load products: $e';
+        });
+      }
     }
   }
 
@@ -54,7 +81,7 @@ class _PrintProductsWidgetState extends State<PrintProductsWidget> {
       );
     }
 
-    if (provider.error != null) {
+    if (_loadError != null && _products.isEmpty) {
       return Center(
         child: Card(
           margin: const EdgeInsets.all(32),
@@ -65,13 +92,10 @@ class _PrintProductsWidgetState extends State<PrintProductsWidget> {
               children: [
                 Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
                 const SizedBox(height: 16),
-                Text(provider.error!, textAlign: TextAlign.center),
+                Text(_loadError!, textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 FilledButton.icon(
-                  onPressed: () {
-                    setState(() => _isLoadingProducts = true);
-                    _loadProducts();
-                  },
+                  onPressed: _loadProducts,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Retry'),
                 ),
@@ -97,6 +121,12 @@ class _PrintProductsWidgetState extends State<PrintProductsWidget> {
             Text(
               'Add products first, then come back to print.',
               style: TextStyle(color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Refresh'),
             ),
           ],
         ),

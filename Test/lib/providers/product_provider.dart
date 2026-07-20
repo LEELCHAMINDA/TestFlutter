@@ -175,11 +175,7 @@ class ProductProvider extends ChangeNotifier {
   }
 
   Future<List<Product>> fetchAllProducts() async {
-    try {
-      return await _apiService.searchProducts('');
-    } catch (e) {
-      return [];
-    }
+    return await _apiService.getAllProducts();
   }
 
   Future<OperationResult> saveRecord() async {

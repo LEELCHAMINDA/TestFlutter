@@ -24,9 +24,11 @@ builder.Services.AddCors(options =>
         if (allowedOrigins is { Length: > 0 })
             policy.WithOrigins(allowedOrigins);
         else
-            policy.AllowAnyOrigin();
+            policy.SetIsOriginAllowed(_ => true).AllowAnyHeader().AllowAnyMethod();
         policy.WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
               .WithHeaders("Content-Type", "Authorization");
+        policy.WithExposedHeaders("Content-Type");
+        policy.SetPreflightMaxAge(TimeSpan.FromMinutes(10));
     });
 });
 
@@ -58,6 +60,7 @@ builder.Services.AddOutputCache(options =>
     options.AddPolicy("ProductsCache", policy =>
         policy.Expire(TimeSpan.FromSeconds(30))
               .SetVaryByQuery("pageNumber", "pageSize", "term")
+              .SetVaryByHeader("Origin")
               .Tag("products"));
 });
 
@@ -66,9 +69,9 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 app.UseResponseCompression();
+app.UseCors("ApiCorsPolicy");
 app.UseOutputCache();
 app.UseMiddleware<ExceptionMiddleware>();
-app.UseCors("ApiCorsPolicy");
 
 if (app.Environment.IsDevelopment())
 {
