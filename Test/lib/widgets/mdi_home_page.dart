@@ -68,10 +68,33 @@ class _MDIHomePageState extends State<MDIHomePage> {
         ..add(_MDIWindow(
           id: _windowIdCounter++,
           title: title,
-          offset: Offset(20 + (_windows.length * 20).toDouble(), 20 + (_windows.length * 20).toDouble()),
+          offset: _clampOffset(Offset(20 + (_windows.length * 20).toDouble(), 20 + (_windows.length * 20).toDouble()), 700, 500),
           child: child,
         ));
     });
+  }
+
+  /// Clamp a window offset so it stays fully visible within the MDI area.
+  Offset _clampOffset(Offset offset, double winWidth, double winHeight) {
+    final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
+    final areaHeight = MediaQuery.sizeOf(context).height - 28 - 26; // minus menubar + statusbar
+    final maxX = (areaWidth - 40).clamp(0.0, double.infinity);
+    final maxY = (areaHeight - 40).clamp(0.0, double.infinity);
+    return Offset(
+      offset.dx.clamp(0.0, maxX),
+      offset.dy.clamp(0.0, maxY),
+    );
+  }
+
+  /// Compute a tiled window size that fits within the MDI area.
+  Size _tileSize(int count) {
+    final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
+    final areaHeight = MediaQuery.sizeOf(context).height - 28 - 26;
+    final rows = (count <= 2) ? 1 : (count <= 4 ? 2 : 3);
+    final cols = (count / rows).ceil();
+    final w = (areaWidth / cols).clamp(350.0, double.infinity);
+    final h = (areaHeight / rows).clamp(250.0, double.infinity);
+    return Size(w, h);
   }
 
   void _closeWindow(int id) {
@@ -116,14 +139,19 @@ class _MDIHomePageState extends State<MDIHomePage> {
   }
 
   void _cascadeWindows() {
+    final visible = _windows.where((w) => !w.minimized).toList();
+    if (visible.isEmpty) return;
+    final size = _tileSize(visible.length);
+    final w = size.width.clamp(350.0, 700.0);
+    final h = size.height.clamp(250.0, 500.0);
     setState(() {
       int index = 0;
-      for (final win in _windows.where((w) => !w.minimized)) {
+      for (final win in visible) {
         win
           ..maximized = false
-          ..offset = Offset(40.0 + index * 32, 40.0 + index * 32)
-          ..width = 700
-          ..height = 500;
+          ..offset = _clampOffset(Offset(40.0 + index * 32, 40.0 + index * 32), w, h)
+          ..width = w
+          ..height = h;
         index++;
       }
     });
@@ -135,15 +163,16 @@ class _MDIHomePageState extends State<MDIHomePage> {
     setState(() {
       final rows = (visible.length <= 2) ? 1 : (visible.length <= 4 ? 2 : 3);
       final cols = (visible.length / rows).ceil();
+      final size = _tileSize(visible.length);
       for (int i = 0; i < visible.length; i++) {
         final win = visible[i];
         final row = i ~/ cols;
         final col = i % cols;
         win
           ..maximized = false
-          ..offset = Offset(col * 400.0, row * 350.0)
-          ..width = 700
-          ..height = 500;
+          ..offset = _clampOffset(Offset(col * size.width, row * size.height), size.width, size.height)
+          ..width = size.width
+          ..height = size.height;
       }
     });
   }
@@ -153,15 +182,16 @@ class _MDIHomePageState extends State<MDIHomePage> {
     if (visible.isEmpty) return;
     setState(() {
       final cols = (visible.length <= 2) ? 1 : (visible.length <= 4 ? 2 : 3);
+      final size = _tileSize(visible.length);
       for (int i = 0; i < visible.length; i++) {
         final win = visible[i];
         final row = i ~/ cols;
         final col = i % cols;
         win
           ..maximized = false
-          ..offset = Offset(col * 400.0, row * 350.0)
-          ..width = 700
-          ..height = 500;
+          ..offset = _clampOffset(Offset(col * size.width, row * size.height), size.width, size.height)
+          ..width = size.width
+          ..height = size.height;
       }
     });
   }
