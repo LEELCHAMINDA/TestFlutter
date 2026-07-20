@@ -61,8 +61,8 @@ class ProductListWidget extends StatelessWidget {
   }
 
   void _showSearchDialog(BuildContext context, ProductProvider provider) {
-    String searchQuery = '';
-    List<Product> searchResults = [];
+    final allProducts = provider.products;
+    List<Product> searchResults = List<Product>.from(allProducts);
     bool isSearching = false;
     final screenWidth = MediaQuery.of(context).size.width;
     final dialogWidth = (screenWidth * 0.85).clamp(300.0, 500.0);
@@ -96,36 +96,18 @@ class ProductListWidget extends StatelessWidget {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
-                      onChanged: (value) async {
-                        searchQuery = value;
-                        if (value.trim().isEmpty) {
-                          setDialogState(() {
-                            searchResults = [];
-                            isSearching = false;
-                          });
-                          return;
-                        }
+                      onChanged: (value) {
+                        final query = value.trim().toLowerCase();
                         setDialogState(() {
-                          isSearching = true;
+                          isSearching = false;
+                          if (query.isEmpty) {
+                            searchResults = List<Product>.from(allProducts);
+                          } else {
+                            searchResults = allProducts
+                                .where((p) => (p.name ?? '').toLowerCase().split(RegExp(r'\s+')).any((w) => w.startsWith(query)))
+                                .toList();
+                          }
                         });
-                        await Future.delayed(const Duration(milliseconds: 300));
-                        if (searchQuery != value) return;
-                        try {
-                          final results = await provider.apiService.searchProducts(value);
-                          if (searchQuery == value && context.mounted) {
-                            setDialogState(() {
-                              searchResults = results;
-                              isSearching = false;
-                            });
-                          }
-                        } catch (e) {
-                          if (searchQuery == value && context.mounted) {
-                            setDialogState(() {
-                              searchResults = [];
-                              isSearching = false;
-                            });
-                          }
-                        }
                       },
                     ),
                     const SizedBox(height: 12),
@@ -140,7 +122,7 @@ class ProductListWidget extends StatelessWidget {
                                       Icon(Icons.search_off, size: 40, color: Colors.grey.shade300),
                                       const SizedBox(height: 8),
                                       Text(
-                                        searchQuery.isEmpty ? 'Type to search...' : 'No products found',
+                                        'No products found',
                                         style: TextStyle(color: Colors.grey.shade500),
                                       ),
                                     ],
