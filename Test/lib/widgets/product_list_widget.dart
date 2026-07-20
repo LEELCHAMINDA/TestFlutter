@@ -426,10 +426,10 @@ class ProductListWidget extends StatelessWidget {
               onPressed: provider.isEditing ? () => provider.undoChanges() : null,
             ),
             const SizedBox(width: 12),
-            IconButton(
-              icon: Icon(Icons.search, size: 20, color: Colors.grey.shade600),
-              onPressed: () => _showSearchDialog(context, provider),
-              tooltip: 'Search',
+              IconButton(
+                icon: Icon(Icons.search, size: 20, color: Colors.grey.shade600),
+                onPressed: provider.isEditing ? null : () => _showSearchDialog(context, provider),
+                tooltip: 'Search',
               splashRadius: 18,
             ),
             if (!isMobile) ...[
