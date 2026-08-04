@@ -25,15 +25,6 @@ class _MDIWindow {
   bool minimized;
 }
 
-class _MenuItemData {
-  _MenuItemData(this.label, this.icon, this.onTap, {this.isChecked = false});
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool isChecked;
-}
-
 class MDIHomePage extends StatefulWidget {
   const MDIHomePage({super.key});
 
@@ -205,13 +196,6 @@ class _MDIHomePageState extends State<MDIHomePage> {
     });
   }
 
-  void _closeAll() {
-    setState(() {
-      _windows.clear();
-      _activeWindowId = null;
-    });
-  }
-
   Widget _buildSidebar() {
     return Sidebar(
       onMenuTap: (title, {child}) {
@@ -220,52 +204,75 @@ class _MDIHomePageState extends State<MDIHomePage> {
           Navigator.of(context).pop();
         }
       },
+      windowMenuItems: _buildWindowMenuItems(),
     );
   }
 
-  Widget _buildMenuBar() {
+  List<SidebarMenuItem?> _buildWindowMenuItems() {
     final hasWindows = _windows.isNotEmpty;
+    return [
+      SidebarMenuItem('Cascade', Icons.view_carousel, hasWindows ? _cascadeWindows : null),
+      SidebarMenuItem('Tile Horizontal', Icons.view_module, hasWindows ? _tileHorizontal : null),
+      SidebarMenuItem('Tile Vertical', Icons.view_quilt, hasWindows ? _tileVertical : null),
+      null,
+      SidebarMenuItem('Minimize All', Icons.minimize, hasWindows ? _minimizeAll : null),
+      if (_windows.isNotEmpty) ...[
+        null,
+        ...(_windows.toList()..sort((a, b) => a.id.compareTo(b.id))).map((win) => SidebarMenuItem(
+          win.title,
+          win.minimized ? Icons.minimize : Icons.tab,
+          () {
+            if (win.minimized) {
+              _restoreWindow(win.id);
+            } else {
+              _bringToFront(win.id);
+            }
+          },
+          isChecked: _activeWindowId == win.id && !win.minimized,
+        )),
+      ],
+    ];
+  }
+
+
+  Widget _buildStatusBar() {
+    final activeWindow = _activeWindowId != null
+        ? _windows.where((w) => w.id == _activeWindowId).firstOrNull
+        : null;
     final minimizedWindows = _windows.where((w) => w.minimized).toList();
 
     return Container(
-      height: 28,
+      height: 26,
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F6F8),
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+        color: const Color(0xFFE8EAED),
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          _buildMenuDropdown('File', [
-            _MenuItemData('Close All', Icons.close_fullscreen, hasWindows ? _closeAll : null),
-          ]),
-          _buildMenuDropdown('Window', [
-            _MenuItemData('Cascade', Icons.view_carousel, hasWindows ? _cascadeWindows : null),
-            _MenuItemData('Tile Horizontal', Icons.view_module, hasWindows ? _tileHorizontal : null),
-            _MenuItemData('Tile Vertical', Icons.view_quilt, hasWindows ? _tileVertical : null),
-            null,
-            _MenuItemData('Minimize All', Icons.minimize, hasWindows ? _minimizeAll : null),
-            null,
-            ..._windows.map((win) => _MenuItemData(
-              win.title,
-              win.minimized ? Icons.minimize : Icons.tab,
-              () {
-                if (win.minimized) {
-                  _restoreWindow(win.id);
-                } else {
-                  _bringToFront(win.id);
-                }
-              },
-              isChecked: _activeWindowId == win.id && !win.minimized,
-            )),
-          ]),
+          Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+          const SizedBox(width: 6),
+          Text(
+            'Windows: ${_windows.length}',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+          const SizedBox(width: 16),
+          if (activeWindow != null) ...[
+            Icon(Icons.tab, size: 14, color: Colors.blue.shade700),
+            const SizedBox(width: 6),
+            Text(
+              'Active: ${activeWindow.title}',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
+            ),
+          ] else
+            Text(
+              'Active: None',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
           const Spacer(),
           if (minimizedWindows.isNotEmpty) ...[
-            Container(
-              width: 1,
-              height: 18,
-              color: Colors.grey.shade300,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-            ),
             ...minimizedWindows.map((win) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: Material(
@@ -316,89 +323,6 @@ class _MDIHomePageState extends State<MDIHomePage> {
     );
   }
 
-  Widget _buildMenuDropdown(String label, List<_MenuItemData?> items) {
-    return MenuAnchor(
-      menuChildren: items.map<Widget>((item) {
-        if (item == null) {
-          return const Divider(height: 1, indent: 8, endIndent: 8);
-        }
-        return MenuItemButton(
-          leadingIcon: Icon(item.icon, size: 18),
-          trailingIcon: item.isChecked ? const Icon(Icons.check, size: 18) : null,
-          onPressed: item.onTap,
-          child: Text(item.label, style: const TextStyle(fontSize: 13)),
-        );
-      }).toList(),
-      builder: (context, controller, child) {
-        return InkWell(
-          onTap: () {
-            if (controller.isOpen) {
-              controller.close();
-            } else {
-              controller.open();
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatusBar() {
-    final activeWindow = _activeWindowId != null
-        ? _windows.where((w) => w.id == _activeWindowId).firstOrNull
-        : null;
-
-    return Container(
-      height: 26,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8EAED),
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
-          const SizedBox(width: 6),
-          Text(
-            'Windows: ${_windows.length}',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-          ),
-          const SizedBox(width: 16),
-          if (activeWindow != null) ...[
-            Icon(Icons.tab, size: 14, color: Colors.blue.shade700),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Active: ${activeWindow.title}',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade800),
-              ),
-            ),
-          ] else
-            Flexible(
-              child: Text(
-                'Active: None',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-              ),
-            ),
-          const Spacer(),
-          Text(
-            '${_windows.where((w) => w.minimized).length} minimized',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final visibleWindows = _windows.where((w) => !w.minimized).toList();
@@ -441,9 +365,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
       drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
       body: isMobile
           ? _buildMobileBody(visibleWindows)
-          : Column(
+            : Column(
               children: [
-                _buildMenuBar(),
                 Expanded(
                   child: _buildDesktopBody(visibleWindows),
                 ),
