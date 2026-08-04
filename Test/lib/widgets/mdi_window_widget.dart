@@ -14,6 +14,7 @@ class MdiWindowWidget extends StatelessWidget {
     this.width = 700,
     this.height = 500,
     this.child,
+    this.leading,
   });
 
   final String title;
@@ -27,6 +28,7 @@ class MdiWindowWidget extends StatelessWidget {
   final VoidCallback? onBringToFront;
   final ValueChanged<Size>? onResize;
   final Widget? child;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +69,10 @@ class MdiWindowWidget extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
+                          if (leading != null) ...[
+                            leading!,
+                            const SizedBox(width: 4),
+                          ],
                           Icon(
                             Icons.tab,
                             color: isActive ? Colors.white : Colors.white70,

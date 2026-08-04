@@ -327,48 +327,68 @@ class _MDIHomePageState extends State<MDIHomePage> {
   Widget build(BuildContext context) {
     final visibleWindows = _windows.where((w) => !w.minimized).toList();
     final isMobile = Responsive.isMobile(context);
+    final hasMaximizedWindows = _windows.any((w) => w.maximized && !w.minimized);
+    final topPadding = MediaQuery.of(context).viewPadding.top;
+
+    Widget menuButton({double? iconSize, Color? color}) {
+      if (isMobile) {
+        return IconButton(
+          icon: Icon(Icons.menu, size: iconSize, color: color),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+          tooltip: 'Menu',
+        );
+      }
+      return IconButton(
+        icon: Icon(_isMenuVisible ? Icons.menu_open : Icons.menu, size: iconSize, color: color),
+        onPressed: _toggleMenu,
+        tooltip: _isMenuVisible ? 'Hide Menu' : 'Show Menu',
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: isMobile
-            ? Builder(
-                builder: (ctx) => IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(ctx).openDrawer(),
-                  tooltip: 'Menu',
-                ),
-              )
-            : IconButton(
-                icon: Icon(_isMenuVisible ? Icons.menu_open : Icons.menu),
-                onPressed: _toggleMenu,
-                tooltip: _isMenuVisible ? 'Hide Menu' : 'Show Menu',
+      appBar: hasMaximizedWindows
+          ? null
+          : AppBar(
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              leading: isMobile
+                  ? Builder(
+                      builder: (ctx) => IconButton(
+                        icon: const Icon(Icons.menu),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        tooltip: 'Menu',
+                      ),
+                    )
+                  : IconButton(
+                      icon: Icon(_isMenuVisible ? Icons.menu_open : Icons.menu),
+                      onPressed: _toggleMenu,
+                      tooltip: _isMenuVisible ? 'Hide Menu' : 'Show Menu',
+                    ),
+              title: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.inventory_2, size: 24),
+                  SizedBox(width: 10),
+                  Text(
+                    'Product Manager',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+                  ),
+                ],
               ),
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inventory_2, size: 24),
-            SizedBox(width: 10),
-            Text(
-              'Product Manager',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+              actions: const [
+                SizedBox(width: 8),
+              ],
             ),
-          ],
-        ),
-        actions: const [
-          SizedBox(width: 8),
-        ],
-      ),
       drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
       body: isMobile
           ? _buildMobileBody(visibleWindows)
             : Column(
               children: [
+                if (hasMaximizedWindows) SizedBox(height: topPadding),
                 Expanded(
-                  child: _buildDesktopBody(visibleWindows),
+                  child: _buildDesktopBody(visibleWindows, menuButton: hasMaximizedWindows ? menuButton() : null),
                 ),
                 _buildStatusBar(),
               ],
@@ -407,7 +427,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
     );
   }
 
-  Widget _buildDesktopBody(List<_MDIWindow> visibleWindows) {
+  Widget _buildDesktopBody(List<_MDIWindow> visibleWindows, {Widget? menuButton}) {
     return Row(
       children: [
         AnimatedContainer(
@@ -482,6 +502,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
                                         title: win.title,
                                         maximized: true,
                                         isActive: isActive,
+                                        leading: menuButton,
                                         onClose: () => _closeWindow(win.id),
                                         onMaximize: () => _toggleMaximize(win.id),
                                         onMinimize: () => _minimizeWindow(win.id),
