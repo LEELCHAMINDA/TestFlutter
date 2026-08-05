@@ -2,11 +2,16 @@ import 'package:flutter/widgets.dart';
 
 import '../models/operation_result.dart';
 import '../models/product.dart';
+import '../services/auth_service.dart';
 import '../services/product_api_service.dart';
 
 class ProductProvider extends ChangeNotifier {
-  ProductProvider({ProductApiService? apiService})
-      : _apiService = apiService ?? ProductApiService();
+  ProductProvider({ProductApiService? apiService, AuthService? authService})
+      : _apiService = apiService ?? ProductApiService() {
+    if (authService != null) {
+      _apiService.setAuthHeaders(() => authService.authHeaders);
+    }
+  }
 
   final ProductApiService _apiService;
 

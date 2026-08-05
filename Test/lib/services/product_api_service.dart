@@ -11,6 +11,12 @@ List<Product> _parseProducts(String jsonStr) {
   return data.map((e) => Product.fromJson(e)).toList();
 }
 
+List<Product> _parsePagedProducts(String jsonStr) {
+  final Map<String, dynamic> data = json.decode(jsonStr);
+  final List<dynamic> items = data['items'] ?? [];
+  return items.map((e) => Product.fromJson(e)).toList();
+}
+
 Product _parseSingleProduct(String jsonStr) => Product.fromJson(json.decode(jsonStr));
 
 class ProductApiService {
@@ -22,16 +28,27 @@ class ProductApiService {
 
   final String baseUrl;
   final http.Client _client;
+  Map<String, String> Function()? _authHeadersFn;
+
+  static const String _apiVersion = 'v1';
+  static const String _apiBase = '/api';
 
   // Bounded, insertion-ordered LRU cache (max 100 entries) so a long session
   // does not grow the cache without limit.
   static const int _maxCacheSize = 100;
   final Map<int, Product> _productCache = {};
 
-  Future<List<Product>> getAllProducts() async {
-    final response = await _client.get(Uri.parse('$baseUrl/api/products'));
+  Future<List<Product>> getAllProducts({int pageNumber = 1, int pageSize = 100}) async {
+    final uri = Uri.parse('$baseUrl$_apiBase/$_apiVersion/products').replace(
+      queryParameters: {
+        'pageNumber': pageNumber.toString(),
+        'pageSize': pageSize.toString(),
+      },
+    );
+    final headers = {...(_authHeadersFn?.call() ?? {})};
+    final response = await _client.get(uri, headers: headers);
     if (response.statusCode == 200) {
-      final products = await compute(_parseProducts, response.body);
+      final products = await compute(_parsePagedProducts, response.body);
       for (final p in products) {
         _cachePut(p.id, p);
       }
@@ -41,8 +58,11 @@ class ProductApiService {
   }
 
   Future<List<Product>> searchProducts(String searchTerm) async {
-    final uri = Uri.parse('$baseUrl/api/products/search').replace(queryParameters: {'term': searchTerm});
-    final response = await _client.get(uri);
+    final uri = Uri.parse('$baseUrl$_apiBase/$_apiVersion/products/search').replace(
+      queryParameters: {'term': searchTerm},
+    );
+    final headers = {...(_authHeadersFn?.call() ?? {})};
+    final response = await _client.get(uri, headers: headers);
     if (response.statusCode == 200) {
       final products = await compute(_parseProducts, response.body);
       for (final p in products) {
@@ -58,7 +78,11 @@ class ProductApiService {
     if (cached != null) {
       return cached;
     }
-    final response = await _client.get(Uri.parse('$baseUrl/api/products/$id'));
+    final headers = {...(_authHeadersFn?.call() ?? {})};
+    final response = await _client.get(
+      Uri.parse('$baseUrl$_apiBase/$_apiVersion/products/$id'),
+      headers: headers,
+    );
     if (response.statusCode == 200) {
       final product = await compute(_parseSingleProduct, response.body);
       _cachePut(id, product);
@@ -69,9 +93,13 @@ class ProductApiService {
   }
 
   Future<int> createProduct(Product product) async {
+    final headers = {
+      'Content-Type': 'application/json',
+      ...(_authHeadersFn?.call() ?? {}),
+    };
     final response = await _client.post(
-      Uri.parse('$baseUrl/api/products'),
-      headers: {'Content-Type': 'application/json'},
+      Uri.parse('$baseUrl$_apiBase/$_apiVersion/products'),
+      headers: headers,
       body: json.encode(product.toJson()),
     );
     if (response.statusCode == 201) {
@@ -82,9 +110,13 @@ class ProductApiService {
   }
 
   Future<void> updateProduct(Product product) async {
+    final headers = {
+      'Content-Type': 'application/json',
+      ...(_authHeadersFn?.call() ?? {}),
+    };
     final response = await _client.put(
-      Uri.parse('$baseUrl/api/products/${product.id}'),
-      headers: {'Content-Type': 'application/json'},
+      Uri.parse('$baseUrl$_apiBase/$_apiVersion/products/${product.id}'),
+      headers: headers,
       body: json.encode(product.toJson()),
     );
     if (response.statusCode == 204) {
@@ -98,8 +130,10 @@ class ProductApiService {
   }
 
   Future<void> deleteProduct(int id) async {
+    final headers = {...(_authHeadersFn?.call() ?? {})};
     final response = await _client.delete(
-      Uri.parse('$baseUrl/api/products/$id'),
+      Uri.parse('$baseUrl$_apiBase/$_apiVersion/products/$id'),
+      headers: headers,
     );
     if (response.statusCode == 204) {
       _productCache.remove(id);
@@ -116,6 +150,10 @@ class ProductApiService {
       _productCache.remove(_productCache.keys.first);
     }
     _productCache[id] = product;
+  }
+
+  void setAuthHeaders(Map<String, String> Function() headersFn) {
+    _authHeadersFn = headersFn;
   }
 
   void clearCache() => _productCache.clear();

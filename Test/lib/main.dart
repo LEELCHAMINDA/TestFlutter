@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'providers/product_provider.dart';
-import 'utils/constants.dart';
-import 'widgets/mdi_home_page.dart';
+import 'providers/auth_provider.dart';
+import 'widgets/auth_guard.dart';
 
 void main() {
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -13,12 +12,7 @@ void main() {
     }
     FlutterError.presentError(details);
   };
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => ProductProvider()..fetchProducts(),
-      child: const MyApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -26,11 +20,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Product Manager',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      home: const MDIHomePage(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()..init()),
+      ],
+      child: const AuthGuard(),
     );
   }
 }
