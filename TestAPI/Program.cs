@@ -80,7 +80,9 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            policy.DisallowCredentials();
+            // No origins configured — deny all cross-origin requests by not allowing anything
+            policy.SetIsOriginAllowed(_ => false)
+                  .DisallowCredentials();
         }
     });
 });
@@ -99,7 +101,7 @@ builder.Services.AddApiVersioning(options =>
 // ── Services ─────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IProductMapper, ProductMapper>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
-builder.Services.AddSingleton<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
@@ -245,12 +247,10 @@ auth.MapPost("/login", async (
     await authRepo.UpdateLastLoginAsync(user.Id);
 
     var token = jwtService.GenerateAccessToken(user.Id, user.Username, user.Email);
-    var refreshToken = jwtService.GenerateRefreshToken();
     var expiresAt = jwtService.GetTokenExpiration();
 
     return Results.Ok(new AuthResponse(
         Token: token,
-        RefreshToken: refreshToken,
         ExpiresAt: expiresAt,
         User: new UserResponse(
             Id: user.Id,
@@ -292,12 +292,10 @@ auth.MapPost("/register", async (
     var createdUser = await authRepo.CreateUserAsync(user);
 
     var token = jwtService.GenerateAccessToken(createdUser.Id, createdUser.Username, createdUser.Email);
-    var refreshToken = jwtService.GenerateRefreshToken();
     var expiresAt = jwtService.GetTokenExpiration();
 
-    return Results.Created($"/api/v1/auth/{createdUser.Id}", new AuthResponse(
+    return Results.Created($"/api/auth/users/{createdUser.Id}", new AuthResponse(
         Token: token,
-        RefreshToken: refreshToken,
         ExpiresAt: expiresAt,
         User: new UserResponse(
             Id: createdUser.Id,
@@ -315,10 +313,10 @@ auth.MapGet("/me", async (
     IAuthRepository authRepo) =>
 {
     var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-    if (userId == null)
+    if (userId == null || !int.TryParse(userId, out var parsedUserId))
         return Results.Unauthorized();
 
-    var user = await authRepo.GetUserByIdAsync(int.Parse(userId));
+    var user = await authRepo.GetUserByIdAsync(parsedUserId);
     if (user == null)
         return Results.NotFound();
 
@@ -345,10 +343,8 @@ products.MapGet("/", async (
     pageNumber = Math.Max(1, pageNumber);
     pageSize = Math.Clamp(pageSize, 1, 100);
 
-    var allProducts = (await repo.GetAllProducts(ct)).ToList();
-    var paged = allProducts
-        .Skip((pageNumber - 1) * pageSize)
-        .Take(pageSize)
+    var (items, totalCount) = await repo.GetProductsPaged(pageNumber, pageSize, ct);
+    var paged = items
         .Select(p => new ProductResponse(p.Id, p.Name, p.Price, p.Description, p.Stock, p.IsActive, p.CreatedDate))
         .ToList();
 
@@ -357,8 +353,8 @@ products.MapGet("/", async (
         Items = paged,
         PageNumber = pageNumber,
         PageSize = pageSize,
-        TotalCount = allProducts.Count,
-        TotalPages = (int)Math.Ceiling(allProducts.Count / (double)pageSize)
+        TotalCount = totalCount,
+        TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
     });
 })
 .CacheOutput("ProductsCache")
@@ -406,7 +402,7 @@ products.MapPost("/", async (
     var product = mapper.ToDomain(request);
     var newId = await repo.CreateProduct(product, ct);
     var created = await repo.GetProductById(newId, ct);
-    return Results.Created($"/api/v1/products/{newId}", mapper.ToResponse(created!));
+    return Results.Created($"/api/products/{newId}", mapper.ToResponse(created!));
 })
 .AllowAnonymous()
 .RequireRateLimiting("fixed")

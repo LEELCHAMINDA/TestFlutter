@@ -15,18 +15,12 @@ public class ProductRepository : IProductRepository
     /// <summary>
     /// Initializes a new instance of the <see cref="ProductRepository"/> class.
     /// </summary>
-    /// <param name="configuration">The configuration instance for accessing connection strings and settings.</param>
     public ProductRepository(IConfiguration configuration)
     {
         _configuration = configuration;
         _commandTimeout = configuration.GetValue<int>("Database:CommandTimeout", 30);
     }
 
-    /// <summary>
-    /// Creates a new database connection using the configured connection string.
-    /// Connection pooling is handled by ADO.NET based on the connection string settings.
-    /// </summary>
-    /// <returns>An open <see cref="SqlConnection"/> instance.</returns>
     private SqlConnection CreateConnection()
     {
         var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
@@ -34,11 +28,7 @@ public class ProductRepository : IProductRepository
         return new SqlConnection(connectionString);
     }
 
-    /// <summary>
-    /// Retrieves all products from the database.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A collection of all products.</returns>
+    /// <inheritdoc/>
     public async Task<IEnumerable<Product>> GetAllProducts(CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
@@ -48,12 +38,26 @@ public class ProductRepository : IProductRepository
             commandTimeout: _commandTimeout);
     }
 
-    /// <summary>
-    /// Retrieves a single product by its identifier.
-    /// </summary>
-    /// <param name="id">The product identifier.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The product if found; otherwise, null.</returns>
+    /// <inheritdoc/>
+    public async Task<(IEnumerable<Product> Items, int TotalCount)> GetProductsPaged(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
+    {
+        using var connection = CreateConnection();
+        var parameters = new DynamicParameters();
+        parameters.Add("@PageNumber", pageNumber);
+        parameters.Add("@PageSize", pageSize);
+        parameters.Add("@TotalCount", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
+
+        var items = await connection.QueryAsync<Product>(
+            "[usp_GetProductsPaged]",
+            parameters,
+            commandType: System.Data.CommandType.StoredProcedure,
+            commandTimeout: _commandTimeout);
+
+        var totalCount = parameters.Get<int>("@TotalCount");
+        return (items, totalCount);
+    }
+
+    /// <inheritdoc/>
     public async Task<Product?> GetProductById(int id, CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
@@ -66,12 +70,7 @@ public class ProductRepository : IProductRepository
             commandTimeout: _commandTimeout);
     }
 
-    /// <summary>
-    /// Searches for products matching the specified search term.
-    /// </summary>
-    /// <param name="searchTerm">The search term to filter products.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A collection of matching products.</returns>
+    /// <inheritdoc/>
     public async Task<IEnumerable<Product>> SearchProducts(string searchTerm, CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
@@ -84,12 +83,7 @@ public class ProductRepository : IProductRepository
             commandTimeout: _commandTimeout);
     }
 
-    /// <summary>
-    /// Creates a new product in the database.
-    /// </summary>
-    /// <param name="product">The product to create.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The identifier of the newly created product.</returns>
+    /// <inheritdoc/>
     public async Task<int> CreateProduct(Product product, CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
@@ -107,12 +101,7 @@ public class ProductRepository : IProductRepository
         return parameters.Get<int>("@NewId");
     }
 
-    /// <summary>
-    /// Updates an existing product in the database.
-    /// </summary>
-    /// <param name="product">The product with updated values.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of rows affected.</returns>
+    /// <inheritdoc/>
     public async Task<int> UpdateProduct(Product product, CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();
@@ -130,12 +119,7 @@ public class ProductRepository : IProductRepository
             commandTimeout: _commandTimeout);
     }
 
-    /// <summary>
-    /// Deletes a product from the database.
-    /// </summary>
-    /// <param name="id">The identifier of the product to delete.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of rows affected.</returns>
+    /// <inheritdoc/>
     public async Task<int> DeleteProduct(int id, CancellationToken cancellationToken = default)
     {
         using var connection = CreateConnection();

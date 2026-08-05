@@ -14,18 +14,7 @@ public interface IJwtTokenService
     /// <summary>
     /// Generates a JWT access token for a user.
     /// </summary>
-    /// <param name="userId">The user identifier.</param>
-    /// <param name="username">The username.</param>
-    /// <param name="email">The email address.</param>
-    /// <param name="roles">The user roles.</param>
-    /// <returns>The JWT token string.</returns>
     string GenerateAccessToken(int userId, string username, string email, IEnumerable<string>? roles = null);
-
-    /// <summary>
-    /// Generates a refresh token.
-    /// </summary>
-    /// <returns>The refresh token string.</returns>
-    string GenerateRefreshToken();
 
     /// <summary>
     /// Gets the token expiration time.
@@ -38,7 +27,6 @@ public interface IJwtTokenService
 /// </summary>
 public class JwtTokenService : IJwtTokenService
 {
-    private readonly IConfiguration _configuration;
     private readonly string _secretKey;
     private readonly string _issuer;
     private readonly string _audience;
@@ -46,17 +34,17 @@ public class JwtTokenService : IJwtTokenService
 
     /// <summary>
     /// Initializes a new instance of the <see cref="JwtTokenService"/> class.
+    /// Uses the same dev key fallback logic as Program.cs signing key.
     /// </summary>
-    /// <param name="configuration">The configuration instance.</param>
-    public JwtTokenService(IConfiguration configuration)
+    public JwtTokenService(IConfiguration configuration, IWebHostEnvironment environment)
     {
-        _configuration = configuration;
         var jwtKey = configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
 
-        // Use dev key if not configured (development only)
         _secretKey = !string.IsNullOrWhiteSpace(jwtKey)
             ? jwtKey
-            : "dev-only-insecure-key-change-in-production-32chars!";
+            : environment.IsDevelopment()
+                ? "dev-only-insecure-key-change-in-production-32chars!"
+                : throw new InvalidOperationException("JWT key must be configured in production.");
 
         _issuer = configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "TestAPI";
         _audience = configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "TestAPI";
@@ -93,15 +81,6 @@ public class JwtTokenService : IJwtTokenService
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    /// <inheritdoc/>
-    public string GenerateRefreshToken()
-    {
-        var randomBytes = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomBytes);
-        return Convert.ToBase64String(randomBytes);
     }
 
     /// <inheritdoc/>
