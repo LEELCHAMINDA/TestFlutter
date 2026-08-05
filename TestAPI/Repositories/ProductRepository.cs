@@ -41,20 +41,33 @@ public class ProductRepository : IProductRepository
     /// <inheritdoc/>
     public async Task<(IEnumerable<Product> Items, int TotalCount)> GetProductsPaged(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
-        using var connection = CreateConnection();
-        var parameters = new DynamicParameters();
-        parameters.Add("@PageNumber", pageNumber);
-        parameters.Add("@PageSize", pageSize);
-        parameters.Add("@TotalCount", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
+        try
+        {
+            using var connection = CreateConnection();
+            var parameters = new DynamicParameters();
+            parameters.Add("@PageNumber", pageNumber);
+            parameters.Add("@PageSize", pageSize);
+            parameters.Add("@TotalCount", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
 
-        var items = await connection.QueryAsync<Product>(
-            "[usp_GetProductsPaged]",
-            parameters,
-            commandType: System.Data.CommandType.StoredProcedure,
-            commandTimeout: _commandTimeout);
+            var items = await connection.QueryAsync<Product>(
+                "[usp_GetProductsPaged]",
+                parameters,
+                commandType: System.Data.CommandType.StoredProcedure,
+                commandTimeout: _commandTimeout);
 
-        var totalCount = parameters.Get<int>("@TotalCount");
-        return (items, totalCount);
+            var totalCount = parameters.Get<int>("@TotalCount");
+            return (items, totalCount);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        {
+            // Fallback: load all and paginate in memory if stored procedure doesn't exist
+            var allProducts = (await GetAllProducts(cancellationToken)).ToList();
+            var paged = allProducts
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+            return (paged, allProducts.Count);
+        }
     }
 
     /// <inheritdoc/>
