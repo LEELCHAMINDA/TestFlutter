@@ -37,7 +37,8 @@ if (Test-ApiUp) {
 } else {
     Write-Step "Starting API (TestAPI)..."
     Start-Process -FilePath "dotnet" -ArgumentList "run","--project",$apiDir `
-        -RedirectStandardOutput $apiLog -RedirectStandardError $apiErr -WindowStyle Hidden
+        -RedirectStandardOutput $apiLog -RedirectStandardError $apiErr -WindowStyle Hidden `
+        -Environment @{"ASPNETCORE_ENVIRONMENT"="Development"}
 
     $tries = 0
     while ($tries -lt 40) {

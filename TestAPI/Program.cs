@@ -70,7 +70,20 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("ApiCorsPolicy", policy =>
     {
-        if (allowedOrigins.Length > 0)
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(origin =>
+                {
+                    try { return new Uri(origin).Host == "localhost"; }
+                    catch { return false; }
+                })
+                  .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                  .WithHeaders("Content-Type", "Authorization")
+                  .WithExposedHeaders("Content-Type", "X-Pagination")
+                  .AllowCredentials()
+                  .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+        }
+        else if (allowedOrigins.Length > 0)
         {
             policy.WithOrigins(allowedOrigins)
                   .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
@@ -80,7 +93,6 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            // No origins configured — deny all cross-origin requests by not allowing anything
             policy.SetIsOriginAllowed(_ => false)
                   .DisallowCredentials();
         }
