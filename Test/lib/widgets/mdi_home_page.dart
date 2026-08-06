@@ -76,14 +76,20 @@ class _MDIHomePageState extends State<MDIHomePage> {
     });
   }
 
-  /// Clamp a window offset so it stays fully visible within the MDI area.
-  Offset _clampOffset(Offset offset, double winWidth, double winHeight) {
+  /// Compute the available MDI area size (excluding menu, AppBar, and status bar).
+  Size _mdiAreaSize() {
     final hasMaximizedWindows = _windows.any((w) => w.maximized && !w.minimized);
     final appBarHeight = hasMaximizedWindows ? 0.0 : kToolbarHeight;
-    final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
-    final areaHeight = MediaQuery.sizeOf(context).height - appBarHeight - _statusBarHeight;
-    final maxX = (areaWidth - 40).clamp(0.0, double.infinity);
-    final maxY = (areaHeight - 40).clamp(0.0, double.infinity);
+    final w = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
+    final h = MediaQuery.sizeOf(context).height - appBarHeight - _statusBarHeight;
+    return Size(w, h);
+  }
+
+  /// Clamp a window offset so it stays fully visible within the MDI area.
+  Offset _clampOffset(Offset offset, double winWidth, double winHeight) {
+    final area = _mdiAreaSize();
+    final maxX = (area.width - 40).clamp(0.0, double.infinity);
+    final maxY = (area.height - 40).clamp(0.0, double.infinity);
     return Offset(
       offset.dx.clamp(0.0, maxX),
       offset.dy.clamp(0.0, maxY),
@@ -92,16 +98,13 @@ class _MDIHomePageState extends State<MDIHomePage> {
 
   /// Compute a tiled window size that fits within the MDI area.
   Size _tileSize(int count) {
-    final hasMaximizedWindows = _windows.any((w) => w.maximized && !w.minimized);
-    final appBarHeight = hasMaximizedWindows ? 0.0 : kToolbarHeight;
-    final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
-    final areaHeight = MediaQuery.sizeOf(context).height - appBarHeight - _statusBarHeight;
+    final area = _mdiAreaSize();
     final rows = (count <= 2) ? 1 : (count <= 4 ? 2 : 3);
     final cols = (count / rows).ceil();
-    final minW = (areaWidth / cols * 0.5).clamp(200.0, 350.0);
-    final minH = (areaHeight / rows * 0.5).clamp(150.0, 250.0);
-    final w = (areaWidth / cols).clamp(minW, double.infinity);
-    final h = (areaHeight / rows).clamp(minH, double.infinity);
+    final minW = (area.width / cols * 0.5).clamp(200.0, 350.0);
+    final minH = (area.height / rows * 0.5).clamp(150.0, 250.0);
+    final w = (area.width / cols).clamp(minW, double.infinity);
+    final h = (area.height / rows).clamp(minH, double.infinity);
     return Size(w, h);
   }
 
