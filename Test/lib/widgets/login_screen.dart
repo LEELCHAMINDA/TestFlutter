@@ -73,7 +73,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: EdgeInsets.all(cardPadding),
                   child: Form(
                     key: _formKey,
-                    child: Column(
+                    child: SingleChildScrollView(
+                      child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
@@ -177,6 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: const Text('Create an account'),
                         ),
                       ],
+                    ),
                     ),
                   ),
                 ),
