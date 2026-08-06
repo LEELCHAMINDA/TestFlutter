@@ -5,13 +5,7 @@ import 'providers/auth_provider.dart';
 import 'widgets/auth_guard.dart';
 
 void main() {
-  FlutterError.onError = (FlutterErrorDetails details) {
-    final exception = details.exception;
-    if (exception is FlutterError && exception.message.contains('overflowed')) {
-      return;
-    }
-    FlutterError.presentError(details);
-  };
+  FlutterError.onError = FlutterError.presentError;
   runApp(const MyApp());
 }
 

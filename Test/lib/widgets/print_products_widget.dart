@@ -328,8 +328,8 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
                       : const Icon(Icons.print, size: 18),
                   label: const Text('Print'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   ),
                 ),
               ],
@@ -363,10 +363,10 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.print, size: 28, color: Color(0xFF1565C0)),
+                          child: Icon(Icons.print, size: 28, color: Theme.of(context).colorScheme.primary),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -397,7 +397,13 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      child: _buildPreviewTable(isMobile, products),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 600),
+                          child: _buildPreviewTable(context, isMobile, products),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -409,7 +415,7 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
     );
   }
 
-  Widget _buildPreviewTable(bool isMobile, List<Product> products) {
+  Widget _buildPreviewTable(BuildContext context, bool isMobile, List<Product> products) {
     const headerStyle = TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white);
     final cellStyle = TextStyle(fontSize: 11, color: Colors.grey.shade800);
 
@@ -425,7 +431,7 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
       border: TableBorder.all(color: Colors.grey.shade200, width: 0.5),
       children: [
         TableRow(
-          decoration: const BoxDecoration(color: Color(0xFF1565C0)),
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
           children: [
             _headerCell('#', headerStyle),
             _headerCell('Name', headerStyle),

@@ -224,7 +224,9 @@ class ProductProvider extends ChangeNotifier {
         _isEditing = false;
         _isNewRecord = false;
         _isSaving = false;
-        _selectProductAtIndex(_products.length - 1);
+        _currentIndex = _products.length - 1;
+        _currentProduct = created;
+        _loadCurrentRecord();
         return const OperationResult(true, 'Product created successfully');
       } else {
         final originalProduct = _currentProduct;

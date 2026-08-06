@@ -14,11 +14,44 @@ class ProductListWidget extends StatefulWidget {
 }
 
 class _ProductListWidgetState extends State<ProductListWidget> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   final _stockController = TextEditingController();
   final _descriptionController = TextEditingController();
   bool _controllersInitialized = false;
+  bool _previousIsNewRecord = false;
+
+  String? _validateName(String? value, ProductProvider provider) {
+    if (provider.isEditing && (value == null || value.trim().isEmpty)) {
+      return 'Required';
+    }
+    return null;
+  }
+
+  String? _validatePrice(String? value, ProductProvider provider) {
+    if (provider.isEditing && (value == null || value.trim().isEmpty)) {
+      return 'Required';
+    }
+    if (provider.isEditing) {
+      final num = double.tryParse(value!);
+      if (num == null) return 'Invalid number';
+      if (num < 0) return 'Must be positive';
+    }
+    return null;
+  }
+
+  String? _validateStock(String? value, ProductProvider provider) {
+    if (provider.isEditing && (value == null || value.trim().isEmpty)) {
+      return 'Required';
+    }
+    if (provider.isEditing) {
+      final num = int.tryParse(value!);
+      if (num == null) return 'Invalid integer';
+      if (num < 0) return 'Must be positive';
+    }
+    return null;
+  }
 
   @override
   void dispose() {
@@ -108,7 +141,9 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     List<Product> searchResults = List<Product>.from(allProducts);
     bool isSearching = false;
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     final dialogWidth = (screenWidth * 0.85).clamp(300.0, 500.0);
+    final dialogHeight = (screenHeight * 0.6).clamp(250.0, 500.0);
 
     showDialog(
       context: context,
@@ -128,7 +163,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
               ),
               content: SizedBox(
                 width: dialogWidth,
-                height: 400,
+                height: dialogHeight,
                 child: Column(
                   children: [
                     TextField(
@@ -180,10 +215,10 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                                       leading: CircleAvatar(
                                         radius: 16,
-                                        backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                         child: Text(
                                           (product.name?.isNotEmpty == true ? product.name![0] : '?').toUpperCase(),
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1565C0)),
+                                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.primary),
                                         ),
                                       ),
                                       title: Text(
@@ -301,9 +336,16 @@ class _ProductListWidgetState extends State<ProductListWidget> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProductProvider>();
-    final formKey = GlobalKey<FormState>();
 
-    if (!_controllersInitialized || !_nameController.text.startsWith(provider.name)) {
+    if (provider.isNewRecord && !_previousIsNewRecord) {
+      _nameController.clear();
+      _priceController.clear();
+      _stockController.clear();
+      _descriptionController.clear();
+    }
+    _previousIsNewRecord = provider.isNewRecord;
+
+    if (!_controllersInitialized || _nameController.text != provider.name) {
       _syncControllersFromProvider(provider);
       _controllersInitialized = true;
     }
@@ -390,8 +432,8 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     return ClipRect(
       child: Column(
         children: [
-          _buildToolbar(context, provider, formKey),
-          Expanded(child: _buildForm(context, provider, formKey)),
+          _buildToolbar(context, provider, _formKey),
+          Expanded(child: _buildForm(context, provider, _formKey)),
         ],
       ),
     );
@@ -425,7 +467,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
             ActionChipButton(
               label: 'Add',
               icon: Icons.add,
-              color: const Color(0xFF1565C0),
+              color: Theme.of(context).colorScheme.primary,
               onPressed: provider.isEditing ? null : () => provider.addNew(),
             ),
             const SizedBox(width: 6),
@@ -507,10 +549,10 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.inventory_2, size: 20, color: Color(0xFF1565C0)),
+                          child: Icon(Icons.inventory_2, size: 20, color: Theme.of(context).colorScheme.primary),
                         ),
                         const SizedBox(width: 12),
                         Flexible(
@@ -529,12 +571,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                         child: TextFormField(
                           controller: _nameController,
                           enabled: provider.isEditing,
-                          validator: (value) {
-                            if (provider.isEditing && (value == null || value.trim().isEmpty)) {
-                              return 'Required';
-                            }
-                            return null;
-                          },
+                          validator: (value) => _validateName(value, provider),
                           decoration: const InputDecoration(hintText: 'Enter product name'),
                         ),
                       ),
@@ -545,17 +582,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                           controller: _priceController,
                           enabled: provider.isEditing,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          validator: (value) {
-                            if (provider.isEditing && (value == null || value.trim().isEmpty)) {
-                              return 'Required';
-                            }
-                            if (provider.isEditing) {
-                              final num = double.tryParse(value!);
-                              if (num == null) return 'Invalid number';
-                              if (num < 0) return 'Must be positive';
-                            }
-                            return null;
-                          },
+                          validator: (value) => _validatePrice(value, provider),
                           decoration: const InputDecoration(
                             hintText: '0.00',
                             prefixText: r'$ ',
@@ -569,17 +596,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                           controller: _stockController,
                           enabled: provider.isEditing,
                           keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (provider.isEditing && (value == null || value.trim().isEmpty)) {
-                              return 'Required';
-                            }
-                            if (provider.isEditing) {
-                              final num = int.tryParse(value!);
-                              if (num == null) return 'Invalid integer';
-                              if (num < 0) return 'Must be positive';
-                            }
-                            return null;
-                          },
+                          validator: (value) => _validateStock(value, provider),
                           decoration: const InputDecoration(hintText: '0'),
                         ),
                       ),
@@ -629,12 +646,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                               child: TextFormField(
                                 controller: _nameController,
                                 enabled: provider.isEditing,
-                                validator: (value) {
-                                  if (provider.isEditing && (value == null || value.trim().isEmpty)) {
-                                    return 'Required';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) => _validateName(value, provider),
                                 decoration: const InputDecoration(hintText: 'Enter product name'),
                               ),
                             ),
@@ -647,17 +659,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                                 controller: _priceController,
                                 enabled: provider.isEditing,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                validator: (value) {
-                                  if (provider.isEditing && (value == null || value.trim().isEmpty)) {
-                                    return 'Required';
-                                  }
-                                  if (provider.isEditing) {
-                                    final num = double.tryParse(value!);
-                                    if (num == null) return 'Invalid number';
-                                    if (num < 0) return 'Must be positive';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) => _validatePrice(value, provider),
                                 decoration: const InputDecoration(
                                   hintText: '0.00',
                                   prefixText: r'$ ',
@@ -677,17 +679,7 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                                 controller: _stockController,
                                 enabled: provider.isEditing,
                                 keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (provider.isEditing && (value == null || value.trim().isEmpty)) {
-                                    return 'Required';
-                                  }
-                                  if (provider.isEditing) {
-                                    final num = int.tryParse(value!);
-                                    if (num == null) return 'Invalid integer';
-                                    if (num < 0) return 'Must be positive';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) => _validateStock(value, provider),
                                 decoration: const InputDecoration(hintText: '0'),
                               ),
                             ),

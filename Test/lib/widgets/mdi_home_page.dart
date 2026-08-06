@@ -10,10 +10,10 @@ class _MDIWindow {
     required this.title,
     required this.offset,
     this.child,
+    this.width = 500,
+    this.height = 400,
   })  : maximized = true,
-        minimized = false,
-        width = 700,
-        height = 500;
+        minimized = false;
 
   final int id;
   final String title;
@@ -26,7 +26,10 @@ class _MDIWindow {
 }
 
 class MDIHomePage extends StatefulWidget {
-  const MDIHomePage({super.key});
+  const MDIHomePage({super.key, this.onToggleTheme, this.themeMode});
+
+  final VoidCallback? onToggleTheme;
+  final ThemeMode? themeMode;
 
   @override
   State<MDIHomePage> createState() => _MDIHomePageState();
@@ -39,6 +42,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
   bool _isMenuVisible = true;
   double _previousMenuWidth = 240;
   int? _activeWindowId;
+
+  static const double _statusBarHeight = 26;
 
   void _toggleMenu() {
     setState(() {
@@ -54,12 +59,18 @@ class _MDIHomePageState extends State<MDIHomePage> {
 
   void _addWindow(String title, {Widget? child}) {
     setState(() {
+      final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
+      final areaHeight = MediaQuery.sizeOf(context).height - _statusBarHeight;
+      final winWidth = (areaWidth * 0.7).clamp(350.0, 700.0);
+      final winHeight = (areaHeight * 0.7).clamp(250.0, 500.0);
       _windows
         ..removeWhere((w) => w.title == title)
         ..add(_MDIWindow(
           id: _windowIdCounter++,
           title: title,
-          offset: _clampOffset(Offset(20 + (_windows.length * 20).toDouble(), 20 + (_windows.length * 20).toDouble()), 700, 500),
+          offset: _clampOffset(Offset(20 + (_windows.length * 20).toDouble(), 20 + (_windows.length * 20).toDouble()), winWidth, winHeight),
+          width: winWidth,
+          height: winHeight,
           child: child,
         ));
     });
@@ -68,7 +79,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
   /// Clamp a window offset so it stays fully visible within the MDI area.
   Offset _clampOffset(Offset offset, double winWidth, double winHeight) {
     final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
-    final areaHeight = MediaQuery.sizeOf(context).height - 28 - 26; // minus menubar + statusbar
+    final areaHeight = MediaQuery.sizeOf(context).height - _statusBarHeight;
     final maxX = (areaWidth - 40).clamp(0.0, double.infinity);
     final maxY = (areaHeight - 40).clamp(0.0, double.infinity);
     return Offset(
@@ -80,11 +91,13 @@ class _MDIHomePageState extends State<MDIHomePage> {
   /// Compute a tiled window size that fits within the MDI area.
   Size _tileSize(int count) {
     final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
-    final areaHeight = MediaQuery.sizeOf(context).height - 28 - 26;
+    final areaHeight = MediaQuery.sizeOf(context).height - _statusBarHeight;
     final rows = (count <= 2) ? 1 : (count <= 4 ? 2 : 3);
     final cols = (count / rows).ceil();
-    final w = (areaWidth / cols).clamp(350.0, double.infinity);
-    final h = (areaHeight / rows).clamp(250.0, double.infinity);
+    final minW = (areaWidth / cols * 0.5).clamp(200.0, 350.0);
+    final minH = (areaHeight / rows * 0.5).clamp(150.0, 250.0);
+    final w = (areaWidth / cols).clamp(minW, double.infinity);
+    final h = (areaHeight / rows).clamp(minH, double.infinity);
     return Size(w, h);
   }
 
@@ -205,6 +218,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
         }
       },
       windowMenuItems: _buildWindowMenuItems(),
+      onToggleTheme: widget.onToggleTheme,
+      themeMode: widget.themeMode,
     );
   }
 
@@ -293,7 +308,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.minimize, size: 13, color: Color(0xFF1565C0)),
+                            Icon(Icons.minimize, size: 13, color: Theme.of(context).colorScheme.primary),
                             const SizedBox(width: 5),
                             Flexible(
                               child: Text(
@@ -350,8 +365,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
       appBar: hasMaximizedWindows
           ? null
           : AppBar(
-              backgroundColor: const Color(0xFF1565C0),
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
               elevation: 0,
               leading: isMobile
                   ? Builder(
@@ -415,10 +430,14 @@ class _MDIHomePageState extends State<MDIHomePage> {
     }
 
     final win = visibleWindows.last;
+    final screenW = MediaQuery.sizeOf(context).width;
+    final screenH = MediaQuery.sizeOf(context).height;
     return ClipRect(
       child: MdiWindowWidget(
         title: win.title,
         maximized: true,
+        maxWidth: screenW,
+        maxHeight: screenH,
         onClose: () => _closeWindow(win.id),
         onMaximize: () => _toggleMaximize(win.id),
         onMinimize: () => _minimizeWindow(win.id),
@@ -502,6 +521,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
                                         title: win.title,
                                         maximized: true,
                                         isActive: isActive,
+                                        maxWidth: constraints.maxWidth,
+                                        maxHeight: mdiAreaHeight,
                                         leading: menuButton,
                                         onClose: () => _closeWindow(win.id),
                                         onMaximize: () => _toggleMaximize(win.id),
@@ -531,6 +552,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
                                       isActive: isActive,
                                       width: win.width.clamp(350.0, constraints.maxWidth > 350.0 ? constraints.maxWidth : 350.0),
                                       height: win.height.clamp(250.0, mdiAreaHeight > 250.0 ? mdiAreaHeight : 250.0),
+                                      maxWidth: constraints.maxWidth,
+                                      maxHeight: mdiAreaHeight,
                                       onClose: () => _closeWindow(win.id),
                                       onMaximize: () => _toggleMaximize(win.id),
                                       onMinimize: () => _minimizeWindow(win.id),

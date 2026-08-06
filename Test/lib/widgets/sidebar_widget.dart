@@ -11,10 +11,14 @@ class Sidebar extends StatefulWidget {
     super.key,
     required this.onMenuTap,
     this.windowMenuItems = const [],
+    this.onToggleTheme,
+    this.themeMode,
   });
 
   final void Function(String title, {Widget? child}) onMenuTap;
   final List<SidebarMenuItem?> windowMenuItems;
+  final VoidCallback? onToggleTheme;
+  final ThemeMode? themeMode;
 
   @override
   State<Sidebar> createState() => _SidebarState();
@@ -46,15 +50,15 @@ class _SidebarState extends State<Sidebar> {
           if (isMobile)
             Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.inventory_2, color: Color(0xFF1565C0), size: 24),
-                  SizedBox(width: 10),
+                  Icon(Icons.inventory_2, color: Theme.of(context).colorScheme.primary, size: 24),
+                  const SizedBox(width: 10),
                   Flexible(
                     child: Text(
                       'Product Manager',
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Color(0xFF1565C0)),
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18, color: Theme.of(context).colorScheme.primary),
                     ),
                   ),
                 ],
@@ -115,7 +119,7 @@ class _SidebarState extends State<Sidebar> {
               ],
             ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-          _UserSection(),
+          _UserSection(onToggleTheme: widget.onToggleTheme, themeMode: widget.themeMode),
         ],
       ),
     );
@@ -229,7 +233,7 @@ class _SidebarItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (isChecked) const Icon(Icons.check, size: 18, color: Color(0xFF1565C0)),
+                if (isChecked) Icon(Icons.check, size: 18, color: Theme.of(context).colorScheme.primary),
               ],
             ),
           ),
@@ -240,6 +244,23 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _UserSection extends StatelessWidget {
+  const _UserSection({this.onToggleTheme, this.themeMode});
+
+  final VoidCallback? onToggleTheme;
+  final ThemeMode? themeMode;
+
+  IconData _themeIcon() => switch (themeMode) {
+    ThemeMode.dark => Icons.dark_mode,
+    ThemeMode.light => Icons.light_mode,
+    _ => Icons.brightness_auto,
+  };
+
+  String _themeLabel() => switch (themeMode) {
+    ThemeMode.dark => 'Dark Mode',
+    ThemeMode.light => 'Light Mode',
+    _ => 'System Theme',
+  };
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -254,7 +275,7 @@ class _UserSection extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFF1565C0),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 child: Text(
                   (user?.username ?? 'U')[0].toUpperCase(),
                   style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
@@ -281,6 +302,21 @@ class _UserSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+          if (onToggleTheme != null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onToggleTheme,
+                icon: Icon(_themeIcon(), size: 16),
+                label: Text(_themeLabel(), style: const TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey.shade700,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+            ),
+          if (onToggleTheme != null) const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

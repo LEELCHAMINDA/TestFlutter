@@ -11,8 +11,10 @@ class MdiWindowWidget extends StatelessWidget {
     this.isActive = false,
     this.onBringToFront,
     this.onResize,
-    this.width = 700,
-    this.height = 500,
+    this.width = 500,
+    this.height = 400,
+    this.maxWidth = 1920,
+    this.maxHeight = 1080,
     this.child,
     this.leading,
   });
@@ -22,6 +24,8 @@ class MdiWindowWidget extends StatelessWidget {
   final bool isActive;
   final double width;
   final double height;
+  final double maxWidth;
+  final double maxHeight;
   final VoidCallback onClose;
   final VoidCallback onMaximize;
   final VoidCallback onMinimize;
@@ -33,8 +37,8 @@ class MdiWindowWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titleBarColor = isActive
-        ? const Color(0xFF0D47A1)
-        : const Color(0xFF1565C0);
+        ? HSLColor.fromColor(Theme.of(context).colorScheme.primary).withLightness(0.3).toColor()
+        : Theme.of(context).colorScheme.primary;
 
     return SizedBox(
       width: maximized ? double.infinity : width,
@@ -197,7 +201,7 @@ class MdiWindowWidget extends StatelessWidget {
         child: _ResizeHandle(
           width: edge,
           cursor: SystemMouseCursors.resizeLeftRight,
-          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, 1920.0), height)),
+          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, maxWidth), height)),
         ),
       ),
       Positioned(
@@ -207,7 +211,7 @@ class MdiWindowWidget extends StatelessWidget {
         child: _ResizeHandle(
           height: edge,
           cursor: SystemMouseCursors.resizeUpDown,
-          onResize: (dx, dy) => onResize!(Size(width, (height + dy).clamp(minH, 1080.0))),
+          onResize: (dx, dy) => onResize!(Size(width, (height + dy).clamp(minH, maxHeight))),
         ),
       ),
       Positioned(
@@ -217,7 +221,7 @@ class MdiWindowWidget extends StatelessWidget {
         child: _ResizeHandle(
           width: edge,
           cursor: SystemMouseCursors.resizeLeftRight,
-          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, 1920.0), height)),
+          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, maxWidth), height)),
         ),
       ),
       Positioned(
@@ -227,7 +231,7 @@ class MdiWindowWidget extends StatelessWidget {
         child: _ResizeHandle(
           height: edge,
           cursor: SystemMouseCursors.resizeUpDown,
-          onResize: (dx, dy) => onResize!(Size(width, (height - dy).clamp(minH, 1080.0))),
+          onResize: (dx, dy) => onResize!(Size(width, (height - dy).clamp(minH, maxHeight))),
         ),
       ),
       Positioned(
@@ -237,7 +241,7 @@ class MdiWindowWidget extends StatelessWidget {
           width: corner,
           height: corner,
           cursor: SystemMouseCursors.resizeUpLeftDownRight,
-          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, 1920.0), (height - dy).clamp(minH, 1080.0))),
+          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, maxWidth), (height - dy).clamp(minH, maxHeight))),
         ),
       ),
       Positioned(
@@ -247,7 +251,7 @@ class MdiWindowWidget extends StatelessWidget {
           width: corner,
           height: corner,
           cursor: SystemMouseCursors.resizeUpRightDownLeft,
-          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, 1920.0), (height - dy).clamp(minH, 1080.0))),
+          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, maxWidth), (height - dy).clamp(minH, maxHeight))),
         ),
       ),
       Positioned(
@@ -257,7 +261,7 @@ class MdiWindowWidget extends StatelessWidget {
           width: corner,
           height: corner,
           cursor: SystemMouseCursors.resizeUpRightDownLeft,
-          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, 1920.0), (height + dy).clamp(minH, 1080.0))),
+          onResize: (dx, dy) => onResize!(Size((width - dx).clamp(minW, maxWidth), (height + dy).clamp(minH, maxHeight))),
         ),
       ),
       Positioned(
@@ -267,7 +271,7 @@ class MdiWindowWidget extends StatelessWidget {
           width: corner,
           height: corner,
           cursor: SystemMouseCursors.resizeUpLeftDownRight,
-          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, 1920.0), (height + dy).clamp(minH, 1080.0))),
+          onResize: (dx, dy) => onResize!(Size((width + dx).clamp(minW, maxWidth), (height + dy).clamp(minH, maxHeight))),
         ),
       ),
     ];
