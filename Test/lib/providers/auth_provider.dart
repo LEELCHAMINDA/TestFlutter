@@ -14,31 +14,30 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _authService.isLoading;
 
   Future<void> init() async {
-    _authService.addListener(_onAuthChanged);
     await _authService.init();
     notifyListeners();
   }
 
-  void _onAuthChanged() {
-    notifyListeners();
-  }
-
   Future<AuthResponse> login(String username, String password) async {
-    return await _authService.login(username, password);
+    final result = await _authService.login(username, password);
+    notifyListeners();
+    return result;
   }
 
   Future<AuthResponse> register(
       String username, String password, String email, {String? fullName}) async {
-    return await _authService.register(username, password, email, fullName: fullName);
+    final result = await _authService.register(username, password, email, fullName: fullName);
+    notifyListeners();
+    return result;
   }
 
   Future<void> logout() async {
     await _authService.logout();
+    notifyListeners();
   }
 
   @override
   void dispose() {
-    _authService.removeListener(_onAuthChanged);
     _authService.dispose();
     super.dispose();
   }

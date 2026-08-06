@@ -17,10 +17,10 @@ class ProductProvider extends ChangeNotifier {
 
   ProductApiService get apiService => _apiService;
 
-  final nameController = TextEditingController();
-  final priceController = TextEditingController();
-  final stockController = TextEditingController();
-  final descriptionController = TextEditingController();
+  String _name = '';
+  String _price = '';
+  String _stock = '';
+  String _description = '';
 
   List<Product> _products = [];
   Product? _currentProduct;
@@ -50,30 +50,46 @@ class ProductProvider extends ChangeNotifier {
   bool get isLast => _currentIndex == _products.length - 1;
   String get recordPosition => _products.isEmpty ? '0 / 0' : '${_currentIndex + 1} / ${_products.length}';
 
-  @override
-  void dispose() {
-    nameController.dispose();
-    priceController.dispose();
-    stockController.dispose();
-    descriptionController.dispose();
-    _apiService.dispose();
-    super.dispose();
+  String get name => _name;
+  String get price => _price;
+  String get stock => _stock;
+  String get description => _description;
+
+  void setName(String value) {
+    _name = value;
+  }
+
+  void setPrice(String value) {
+    _price = value;
+  }
+
+  void setStock(String value) {
+    _stock = value;
+  }
+
+  void setDescription(String value) {
+    _description = value;
+  }
+
+  void setActive(bool value) {
+    _isActive = value;
+    notifyListeners();
   }
 
   void _loadCurrentRecord() {
     if (_currentProduct == null) {
-      nameController.clear();
-      priceController.clear();
-      stockController.clear();
-      descriptionController.clear();
+      _name = '';
+      _price = '';
+      _stock = '';
+      _description = '';
       _isActive = true;
       notifyListeners();
       return;
     }
-    nameController.text = _currentProduct!.name ?? '';
-    priceController.text = _currentProduct!.price.toStringAsFixed(2);
-    stockController.text = _currentProduct!.stock.toString();
-    descriptionController.text = _currentProduct!.description ?? '';
+    _name = _currentProduct!.name ?? '';
+    _price = _currentProduct!.price.toStringAsFixed(2);
+    _stock = _currentProduct!.stock.toString();
+    _description = _currentProduct!.description ?? '';
     _isActive = _currentProduct!.isActive;
     notifyListeners();
   }
@@ -141,10 +157,10 @@ class ProductProvider extends ChangeNotifier {
     _isNewRecord = true;
     _isEditing = true;
     _currentProduct = null;
-    nameController.clear();
-    priceController.clear();
-    stockController.clear();
-    descriptionController.clear();
+    _name = '';
+    _price = '';
+    _stock = '';
+    _description = '';
     _isActive = true;
     notifyListeners();
   }
@@ -170,11 +186,6 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  void setActive(bool value) {
-    _isActive = value;
-    notifyListeners();
-  }
-
   void navigateToIndex(int index) {
     _selectProductAtIndex(index);
   }
@@ -186,7 +197,7 @@ class ProductProvider extends ChangeNotifier {
   Future<OperationResult> saveRecord() async {
     if (_isSaving) return const OperationResult(false, 'Already saving');
 
-    if (nameController.text.trim().isEmpty) {
+    if (_name.trim().isEmpty) {
       return const OperationResult(false, 'Product name is required');
     }
 
@@ -198,10 +209,10 @@ class ProductProvider extends ChangeNotifier {
 
       final product = Product(
         id: isNew ? 0 : (_currentProduct?.id ?? 0),
-        name: nameController.text.trim(),
-        price: double.tryParse(priceController.text) ?? 0,
-        description: descriptionController.text.trim(),
-        stock: int.tryParse(stockController.text) ?? 0,
+        name: _name.trim(),
+        price: double.tryParse(_price) ?? 0,
+        description: _description.trim(),
+        stock: int.tryParse(_stock) ?? 0,
         isActive: _isActive,
         createdDate: isNew ? DateTime.now() : (_currentProduct?.createdDate ?? DateTime.now()),
       );

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/environment.dart';
 import '../models/product.dart';
+import 'product_cache.dart';
 
 List<Product> _parseProducts(String jsonStr) {
   final List<dynamic> data = json.decode(jsonStr);
@@ -23,20 +24,18 @@ class ProductApiService {
   ProductApiService({
     String? baseUrl,
     http.Client? client,
+    ProductCache? cache,
   })  : baseUrl = baseUrl ?? Environment.apiBaseUrl,
-        _client = client ?? http.Client();
+        _client = client ?? http.Client(),
+        _cache = cache ?? ProductCache();
 
   final String baseUrl;
   final http.Client _client;
+  final ProductCache _cache;
   Map<String, String> Function()? _authHeadersFn;
 
   static const String _apiVersion = 'v1';
   static const String _apiBase = '/api';
-
-  // Bounded, insertion-ordered LRU cache (max 100 entries) so a long session
-  // does not grow the cache without limit.
-  static const int _maxCacheSize = 100;
-  final Map<int, Product> _productCache = {};
 
   Future<List<Product>> getAllProducts({int pageNumber = 1, int pageSize = 100}) async {
     final uri = Uri.parse('$baseUrl$_apiBase/$_apiVersion/products').replace(
@@ -50,7 +49,7 @@ class ProductApiService {
     if (response.statusCode == 200) {
       final products = await compute(_parsePagedProducts, response.body);
       for (final p in products) {
-        _cachePut(p.id, p);
+        _cache.put(p.id, p);
       }
       return products;
     }
@@ -66,7 +65,7 @@ class ProductApiService {
     if (response.statusCode == 200) {
       final products = await compute(_parseProducts, response.body);
       for (final p in products) {
-        _cachePut(p.id, p);
+        _cache.put(p.id, p);
       }
       return products;
     }
@@ -74,7 +73,7 @@ class ProductApiService {
   }
 
   Future<Product?> getProductById(int id) async {
-    final cached = _productCache[id];
+    final cached = _cache.get(id);
     if (cached != null) {
       return cached;
     }
@@ -85,7 +84,7 @@ class ProductApiService {
     );
     if (response.statusCode == 200) {
       final product = await compute(_parseSingleProduct, response.body);
-      _cachePut(id, product);
+      _cache.put(id, product);
       return product;
     }
     if (response.statusCode == 404) return null;
@@ -120,7 +119,7 @@ class ProductApiService {
       body: json.encode(product.toJson()),
     );
     if (response.statusCode == 204) {
-      _cachePut(product.id, product);
+      _cache.put(product.id, product);
       return;
     }
     if (response.statusCode == 404) {
@@ -136,7 +135,7 @@ class ProductApiService {
       headers: headers,
     );
     if (response.statusCode == 204) {
-      _productCache.remove(id);
+      _cache.remove(id);
       return;
     }
     if (response.statusCode == 404) {
@@ -145,21 +144,14 @@ class ProductApiService {
     throw ApiException('Failed to delete product', response.statusCode);
   }
 
-  void _cachePut(int id, Product product) {
-    if (_productCache.length >= _maxCacheSize) {
-      _productCache.remove(_productCache.keys.first);
-    }
-    _productCache[id] = product;
-  }
-
   void setAuthHeaders(Map<String, String> Function() headersFn) {
     _authHeadersFn = headersFn;
   }
 
-  void clearCache() => _productCache.clear();
+  void clearCache() => _cache.clear();
 
   void dispose() {
-    _productCache.clear();
+    _cache.clear();
     _client.close();
   }
 }

@@ -6,8 +6,51 @@ import '../providers/product_provider.dart';
 import '../utils/responsive.dart';
 import 'common_widgets.dart';
 
-class ProductListWidget extends StatelessWidget {
+class ProductListWidget extends StatefulWidget {
   const ProductListWidget({super.key});
+
+  @override
+  State<ProductListWidget> createState() => _ProductListWidgetState();
+}
+
+class _ProductListWidgetState extends State<ProductListWidget> {
+  final _nameController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _stockController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  bool _controllersInitialized = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _stockController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _syncControllersFromProvider(ProductProvider provider) {
+    if (_nameController.text != provider.name) {
+      _nameController.text = provider.name;
+    }
+    if (_priceController.text != provider.price) {
+      _priceController.text = provider.price;
+    }
+    if (_stockController.text != provider.stock) {
+      _stockController.text = provider.stock;
+    }
+    if (_descriptionController.text != provider.description) {
+      _descriptionController.text = provider.description;
+    }
+  }
+
+  void _pushControllersToProvider(ProductProvider provider) {
+    provider
+      ..setName(_nameController.text)
+      ..setPrice(_priceController.text)
+      ..setStock(_stockController.text)
+      ..setDescription(_descriptionController.text);
+  }
 
   void _showTopNotification(BuildContext context, String message, {bool isError = false}) {
     final overlay = Overlay.of(context);
@@ -248,6 +291,7 @@ class ProductListWidget extends StatelessWidget {
     if (provider.isSaving) return;
     if (formKey.currentState?.validate() != true) return;
 
+    _pushControllersToProvider(provider);
     final result = await provider.saveRecord();
     if (context.mounted) {
       _showTopNotification(context, result.message, isError: !result.success);
@@ -258,6 +302,11 @@ class ProductListWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<ProductProvider>();
     final formKey = GlobalKey<FormState>();
+
+    if (!_controllersInitialized || !_nameController.text.startsWith(provider.name)) {
+      _syncControllersFromProvider(provider);
+      _controllersInitialized = true;
+    }
 
     if (provider.isLoading) {
       return const Center(
@@ -478,7 +527,7 @@ class ProductListWidget extends StatelessWidget {
                       _buildField(
                         label: 'Name',
                         child: TextFormField(
-                          controller: provider.nameController,
+                          controller: _nameController,
                           enabled: provider.isEditing,
                           validator: (value) {
                             if (provider.isEditing && (value == null || value.trim().isEmpty)) {
@@ -493,7 +542,7 @@ class ProductListWidget extends StatelessWidget {
                       _buildField(
                         label: 'Price',
                         child: TextFormField(
-                          controller: provider.priceController,
+                          controller: _priceController,
                           enabled: provider.isEditing,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           validator: (value) {
@@ -517,7 +566,7 @@ class ProductListWidget extends StatelessWidget {
                       _buildField(
                         label: 'Stock',
                         child: TextFormField(
-                          controller: provider.stockController,
+                          controller: _stockController,
                           enabled: provider.isEditing,
                           keyboardType: TextInputType.number,
                           validator: (value) {
@@ -578,7 +627,7 @@ class ProductListWidget extends StatelessWidget {
                             child: _buildField(
                               label: 'Name',
                               child: TextFormField(
-                                controller: provider.nameController,
+                                controller: _nameController,
                                 enabled: provider.isEditing,
                                 validator: (value) {
                                   if (provider.isEditing && (value == null || value.trim().isEmpty)) {
@@ -595,7 +644,7 @@ class ProductListWidget extends StatelessWidget {
                             child: _buildField(
                               label: 'Price',
                               child: TextFormField(
-                                controller: provider.priceController,
+                                controller: _priceController,
                                 enabled: provider.isEditing,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 validator: (value) {
@@ -625,7 +674,7 @@ class ProductListWidget extends StatelessWidget {
                             child: _buildField(
                               label: 'Stock',
                               child: TextFormField(
-                                controller: provider.stockController,
+                                controller: _stockController,
                                 enabled: provider.isEditing,
                                 keyboardType: TextInputType.number,
                                 validator: (value) {
@@ -689,7 +738,7 @@ class ProductListWidget extends StatelessWidget {
                     _buildField(
                       label: 'Description',
                       child: TextFormField(
-                        controller: provider.descriptionController,
+                        controller: _descriptionController,
                         enabled: provider.isEditing,
                         maxLines: isMobile ? 2 : 3,
                         decoration: const InputDecoration(hintText: 'Enter product description (optional)'),

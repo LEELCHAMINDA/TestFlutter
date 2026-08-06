@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using TestAPI.Middleware;
-using TestAPI.Models;
 using TestAPI.Models.Dtos;
 using TestAPI.Repositories;
 using TestAPI.Services;
@@ -115,6 +114,8 @@ builder.Services.AddSingleton<IProductMapper, ProductMapper>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductRequestValidator>();
 
 // ── Response Compression ──────────────────────────────────────────────────
@@ -236,8 +237,7 @@ var auth = app.MapGroup("/api/v{version:apiVersion}/auth");
 
 auth.MapPost("/login", async (
     LoginRequest request,
-    IAuthRepository authRepo,
-    IJwtTokenService jwtService,
+    IAuthService authService,
     IValidator<LoginRequest> validator,
     CancellationToken ct) =>
 {
@@ -245,40 +245,18 @@ auth.MapPost("/login", async (
     if (!validationResult.IsValid)
         return Results.ValidationProblem(validationResult.ToDictionary());
 
-    var user = await authRepo.GetUserByUsernameOrEmailAsync(request.Username);
-    if (user == null || !AuthRepository.VerifyPassword(request.Password, user.PasswordHash))
-        return Results.Json(
-            new { message = "Invalid username or password" },
-            statusCode: 401);
+    var (response, error) = await authService.LoginAsync(request, ct);
+    if (error != null)
+        return Results.Json(new { message = error }, statusCode: error == "Account is inactive" ? 403 : 401);
 
-    if (!user.IsActive)
-        return Results.Json(
-            new { message = "Account is inactive" },
-            statusCode: 403);
-
-    await authRepo.UpdateLastLoginAsync(user.Id);
-
-    var token = jwtService.GenerateAccessToken(user.Id, user.Username, user.Email);
-    var expiresAt = jwtService.GetTokenExpiration();
-
-    return Results.Ok(new AuthResponse(
-        Token: token,
-        ExpiresAt: expiresAt,
-        User: new UserResponse(
-            Id: user.Id,
-            Username: user.Username,
-            Email: user.Email,
-            FullName: user.FullName,
-            IsActive: user.IsActive,
-            CreatedDate: user.CreatedDate)));
+    return Results.Ok(response);
 })
 .AllowAnonymous()
 .WithName("Login");
 
 auth.MapPost("/register", async (
     RegisterRequest request,
-    IAuthRepository authRepo,
-    IJwtTokenService jwtService,
+    IAuthService authService,
     IValidator<RegisterRequest> validator,
     CancellationToken ct) =>
 {
@@ -286,59 +264,23 @@ auth.MapPost("/register", async (
     if (!validationResult.IsValid)
         return Results.ValidationProblem(validationResult.ToDictionary());
 
-    if (await authRepo.UsernameExistsAsync(request.Username))
-        return Results.Conflict(new { message = "Username already exists." });
+    var (response, error) = await authService.RegisterAsync(request, ct);
+    if (error != null)
+        return Results.Conflict(new { message = error });
 
-    if (await authRepo.EmailExistsAsync(request.Email))
-        return Results.Conflict(new { message = "Email already exists." });
-
-    var user = new User
-    {
-        Username = request.Username,
-        Email = request.Email,
-        PasswordHash = AuthRepository.HashPassword(request.Password),
-        FullName = request.FullName,
-        IsActive = true
-    };
-
-    var createdUser = await authRepo.CreateUserAsync(user);
-
-    var token = jwtService.GenerateAccessToken(createdUser.Id, createdUser.Username, createdUser.Email);
-    var expiresAt = jwtService.GetTokenExpiration();
-
-    return Results.Created($"/api/auth/users/{createdUser.Id}", new AuthResponse(
-        Token: token,
-        ExpiresAt: expiresAt,
-        User: new UserResponse(
-            Id: createdUser.Id,
-            Username: createdUser.Username,
-            Email: createdUser.Email,
-            FullName: createdUser.FullName,
-            IsActive: createdUser.IsActive,
-            CreatedDate: createdUser.CreatedDate)));
+    return Results.Created($"/api/auth/users/{response!.User.Id}", response);
 })
 .AllowAnonymous()
 .WithName("Register");
 
 auth.MapGet("/me", async (
     HttpContext context,
-    IAuthRepository authRepo) =>
+    IAuthService authService) =>
 {
-    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-    if (userId == null || !int.TryParse(userId, out var parsedUserId))
-        return Results.Unauthorized();
-
-    var user = await authRepo.GetUserByIdAsync(parsedUserId);
-    if (user == null)
-        return Results.NotFound();
-
-    return Results.Ok(new UserResponse(
-        Id: user.Id,
-        Username: user.Username,
-        Email: user.Email,
-        FullName: user.FullName,
-        IsActive: user.IsActive,
-        CreatedDate: user.CreatedDate));
+    var userResponse = await authService.GetCurrentUserAsync(context.User);
+    return userResponse is not null
+        ? Results.Ok(userResponse)
+        : Results.Unauthorized();
 })
 .RequireAuthorization()
 .WithName("GetCurrentUser");
@@ -349,25 +291,11 @@ var products = app.MapGroup("/api/v{version:apiVersion}/products");
 products.MapGet("/", async (
     int pageNumber,
     int pageSize,
-    IProductRepository repo,
+    IProductService productService,
     CancellationToken ct) =>
 {
-    pageNumber = Math.Max(1, pageNumber);
-    pageSize = Math.Clamp(pageSize, 1, 100);
-
-    var (items, totalCount) = await repo.GetProductsPaged(pageNumber, pageSize, ct);
-    var paged = items
-        .Select(p => new ProductResponse(p.Id, p.Name, p.Price, p.Description, p.Stock, p.IsActive, p.CreatedDate))
-        .ToList();
-
-    return Results.Ok(new PagedResponse<ProductResponse>
-    {
-        Items = paged,
-        PageNumber = pageNumber,
-        PageSize = pageSize,
-        TotalCount = totalCount,
-        TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
-    });
+    var result = await productService.GetProductsPagedAsync(pageNumber, pageSize, ct);
+    return Results.Ok(result);
 })
 .CacheOutput("ProductsCache")
 .AllowAnonymous()
@@ -375,13 +303,11 @@ products.MapGet("/", async (
 
 products.MapGet("/{id:int}", async (
     int id,
-    IProductMapper mapper,
-    IProductRepository repo,
-    CancellationToken ct) =>
+    IProductService productService) =>
 {
-    var product = await repo.GetProductById(id, ct);
-    return product is not null
-        ? Results.Ok(mapper.ToResponse(product))
+    var result = await productService.GetProductByIdAsync(id);
+    return result is not null
+        ? Results.Ok(result)
         : Results.NotFound();
 })
 .AllowAnonymous()
@@ -389,21 +315,18 @@ products.MapGet("/{id:int}", async (
 
 products.MapGet("/search", async (
     string term,
-    IProductMapper mapper,
-    IProductRepository repo,
+    IProductService productService,
     CancellationToken ct) =>
 {
-    var searchResults = await repo.SearchProducts(term, ct);
-    var response = searchResults.Select(p => mapper.ToResponse(p)).ToList();
-    return Results.Ok(response);
+    var result = await productService.SearchProductsAsync(term, ct);
+    return Results.Ok(result);
 })
 .AllowAnonymous()
 .WithName("SearchProducts");
 
 products.MapPost("/", async (
     CreateProductRequest request,
-    IProductMapper mapper,
-    IProductRepository repo,
+    IProductService productService,
     IValidator<CreateProductRequest> validator,
     CancellationToken ct) =>
 {
@@ -411,10 +334,8 @@ products.MapPost("/", async (
     if (!validationResult.IsValid)
         return Results.ValidationProblem(validationResult.ToDictionary());
 
-    var product = mapper.ToDomain(request);
-    var newId = await repo.CreateProduct(product, ct);
-    var created = await repo.GetProductById(newId, ct);
-    return Results.Created($"/api/products/{newId}", mapper.ToResponse(created!));
+    var result = await productService.CreateProductAsync(request, ct);
+    return Results.Created($"/api/products/{result.Id}", result);
 })
 .AllowAnonymous()
 .RequireRateLimiting("fixed")
@@ -423,8 +344,7 @@ products.MapPost("/", async (
 products.MapPut("/{id:int}", async (
     int id,
     UpdateProductRequest request,
-    IProductMapper mapper,
-    IProductRepository repo,
+    IProductService productService,
     IValidator<UpdateProductRequest> validator,
     CancellationToken ct) =>
 {
@@ -432,13 +352,8 @@ products.MapPut("/{id:int}", async (
     if (!validationResult.IsValid)
         return Results.ValidationProblem(validationResult.ToDictionary());
 
-    var existing = await repo.GetProductById(id, ct);
-    if (existing is null)
-        return Results.NotFound();
-
-    var product = mapper.ToDomain(request, id);
-    await repo.UpdateProduct(product, ct);
-    return Results.NoContent();
+    var updated = await productService.UpdateProductAsync(id, request, ct);
+    return updated ? Results.NoContent() : Results.NotFound();
 })
 .AllowAnonymous()
 .RequireRateLimiting("fixed")
@@ -446,11 +361,10 @@ products.MapPut("/{id:int}", async (
 
 products.MapDelete("/{id:int}", async (
     int id,
-    IProductRepository repo,
-    CancellationToken ct) =>
+    IProductService productService) =>
 {
-    var affected = await repo.DeleteProduct(id, ct);
-    return affected == 0 ? Results.NotFound() : Results.NoContent();
+    var deleted = await productService.DeleteProductAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound();
 })
 .AllowAnonymous()
 .RequireRateLimiting("fixed")

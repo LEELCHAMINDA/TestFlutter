@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -53,7 +52,7 @@ class AuthResponse {
   }
 }
 
-class AuthService extends ChangeNotifier {
+class AuthService {
   AuthService({
     http.Client? client,
     String? baseUrl,
@@ -88,12 +87,10 @@ class AuthService extends ChangeNotifier {
         _user = null;
       }
     }
-    notifyListeners();
   }
 
   Future<AuthResponse> login(String username, String password) async {
     _isLoading = true;
-    notifyListeners();
 
     try {
       final response = await _client.post(
@@ -110,16 +107,12 @@ class AuthService extends ChangeNotifier {
         await _saveToken(authResponse.token);
         _token = authResponse.token;
 
-        // Fetch user info using the token
         try {
           _user = await _fetchCurrentUser();
           await _saveUser(_user!);
-        } catch (_) {
-          // Token is valid even if user fetch fails
-        }
+        } catch (_) {}
 
         _isLoading = false;
-        notifyListeners();
         return authResponse;
       }
 
@@ -129,11 +122,9 @@ class AuthService extends ChangeNotifier {
              'Login failed')
           : 'Invalid username or password';
       _isLoading = false;
-      notifyListeners();
       throw AuthException(message, response.statusCode);
     } catch (e) {
       _isLoading = false;
-      notifyListeners();
       if (e is AuthException) rethrow;
       throw AuthException('Login failed: $e', 0);
     }
@@ -142,7 +133,6 @@ class AuthService extends ChangeNotifier {
   Future<AuthResponse> register(
       String username, String password, String email, {String? fullName}) async {
     _isLoading = true;
-    notifyListeners();
 
     try {
       final response = await _client.post(
@@ -167,7 +157,6 @@ class AuthService extends ChangeNotifier {
         } catch (_) {}
 
         _isLoading = false;
-        notifyListeners();
         return authResponse;
       }
 
@@ -177,11 +166,9 @@ class AuthService extends ChangeNotifier {
              'Registration failed')
           : 'Registration failed';
       _isLoading = false;
-      notifyListeners();
       throw AuthException(message, response.statusCode);
     } catch (e) {
       _isLoading = false;
-      notifyListeners();
       if (e is AuthException) rethrow;
       throw AuthException('Registration failed: $e', 0);
     }
@@ -193,7 +180,6 @@ class AuthService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
-    notifyListeners();
   }
 
   Future<AuthUser> _fetchCurrentUser() async {
@@ -237,10 +223,8 @@ class AuthService extends ChangeNotifier {
     return {'Authorization': 'Bearer $_token'};
   }
 
-  @override
   void dispose() {
     _client.close();
-    super.dispose();
   }
 }
 

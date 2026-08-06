@@ -1,42 +1,7 @@
 using System.Collections.Concurrent;
+using TestAPI.Models;
 
 namespace TestAPI.Repositories;
-
-/// <summary>
-/// Interface for user authentication operations.
-/// </summary>
-public interface IAuthRepository
-{
-    /// <summary>
-    /// Gets a user by username or email.
-    /// </summary>
-    Task<Models.User?> GetUserByUsernameOrEmailAsync(string usernameOrEmail);
-
-    /// <summary>
-    /// Gets a user by ID.
-    /// </summary>
-    Task<Models.User?> GetUserByIdAsync(int id);
-
-    /// <summary>
-    /// Creates a new user.
-    /// </summary>
-    Task<Models.User> CreateUserAsync(Models.User user);
-
-    /// <summary>
-    /// Updates the last login date for a user.
-    /// </summary>
-    Task UpdateLastLoginAsync(int userId);
-
-    /// <summary>
-    /// Checks if a username already exists.
-    /// </summary>
-    Task<bool> UsernameExistsAsync(string username);
-
-    /// <summary>
-    /// Checks if an email already exists.
-    /// </summary>
-    Task<bool> EmailExistsAsync(string email);
-}
 
 /// <summary>
 /// In-memory user repository for development.
@@ -44,9 +9,9 @@ public interface IAuthRepository
 /// </summary>
 public class AuthRepository : IAuthRepository
 {
-    private readonly ConcurrentDictionary<int, Models.User> _usersById = new();
-    private readonly ConcurrentDictionary<string, Models.User> _usersByUsername = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, Models.User> _usersByEmail = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<int, User> _usersById = new();
+    private readonly ConcurrentDictionary<string, User> _usersByUsername = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, User> _usersByEmail = new(StringComparer.OrdinalIgnoreCase);
     private int _nextId;
 
     /// <summary>
@@ -55,7 +20,7 @@ public class AuthRepository : IAuthRepository
     /// </summary>
     public AuthRepository()
     {
-        var admin = new Models.User
+        var admin = new User
         {
             Id = Interlocked.Increment(ref _nextId),
             Username = "admin",
@@ -71,24 +36,24 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <inheritdoc/>
-    public Task<Models.User?> GetUserByUsernameOrEmailAsync(string usernameOrEmail)
+    public Task<User?> GetUserByUsernameOrEmailAsync(string usernameOrEmail)
     {
         if (_usersByUsername.TryGetValue(usernameOrEmail, out var user))
-            return Task.FromResult<Models.User?>(user);
+            return Task.FromResult<User?>(user);
         if (_usersByEmail.TryGetValue(usernameOrEmail, out user))
-            return Task.FromResult<Models.User?>(user);
-        return Task.FromResult<Models.User?>(null);
+            return Task.FromResult<User?>(user);
+        return Task.FromResult<User?>(null);
     }
 
     /// <inheritdoc/>
-    public Task<Models.User?> GetUserByIdAsync(int id)
+    public Task<User?> GetUserByIdAsync(int id)
     {
         _usersById.TryGetValue(id, out var user);
         return Task.FromResult(user);
     }
 
     /// <inheritdoc/>
-    public Task<Models.User> CreateUserAsync(Models.User user)
+    public Task<User> CreateUserAsync(User user)
     {
         user.Id = Interlocked.Increment(ref _nextId);
         user.CreatedDate = DateTime.UtcNow;
