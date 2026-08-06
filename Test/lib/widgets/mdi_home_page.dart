@@ -78,8 +78,10 @@ class _MDIHomePageState extends State<MDIHomePage> {
 
   /// Clamp a window offset so it stays fully visible within the MDI area.
   Offset _clampOffset(Offset offset, double winWidth, double winHeight) {
+    final hasMaximizedWindows = _windows.any((w) => w.maximized && !w.minimized);
+    final appBarHeight = hasMaximizedWindows ? 0.0 : kToolbarHeight;
     final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
-    final areaHeight = MediaQuery.sizeOf(context).height - _statusBarHeight;
+    final areaHeight = MediaQuery.sizeOf(context).height - appBarHeight - _statusBarHeight;
     final maxX = (areaWidth - 40).clamp(0.0, double.infinity);
     final maxY = (areaHeight - 40).clamp(0.0, double.infinity);
     return Offset(
@@ -90,8 +92,10 @@ class _MDIHomePageState extends State<MDIHomePage> {
 
   /// Compute a tiled window size that fits within the MDI area.
   Size _tileSize(int count) {
+    final hasMaximizedWindows = _windows.any((w) => w.maximized && !w.minimized);
+    final appBarHeight = hasMaximizedWindows ? 0.0 : kToolbarHeight;
     final areaWidth = MediaQuery.sizeOf(context).width - (_isMenuVisible ? _menuWidth : 0);
-    final areaHeight = MediaQuery.sizeOf(context).height - _statusBarHeight;
+    final areaHeight = MediaQuery.sizeOf(context).height - appBarHeight - _statusBarHeight;
     final rows = (count <= 2) ? 1 : (count <= 4 ? 2 : 3);
     final cols = (count / rows).ceil();
     final minW = (areaWidth / cols * 0.5).clamp(200.0, 350.0);
@@ -259,8 +263,8 @@ class _MDIHomePageState extends State<MDIHomePage> {
     return Container(
       height: 26,
       decoration: BoxDecoration(
-        color: const Color(0xFFE8EAED),
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -291,13 +295,13 @@ class _MDIHomePageState extends State<MDIHomePage> {
             ...minimizedWindows.map((win) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: Material(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -361,7 +365,7 @@ class _MDIHomePageState extends State<MDIHomePage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
       appBar: hasMaximizedWindows
           ? null
           : AppBar(

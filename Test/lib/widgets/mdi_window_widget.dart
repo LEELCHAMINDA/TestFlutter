@@ -88,7 +88,7 @@ class MdiWindowWidget extends StatelessWidget {
                               title,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
                                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                                 fontSize: 13,
                               ),

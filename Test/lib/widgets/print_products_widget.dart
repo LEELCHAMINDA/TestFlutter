@@ -299,8 +299,8 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
         Container(
           padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -338,13 +338,13 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
         ),
         Expanded(
           child: Container(
-            color: Colors.grey.shade100,
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
             padding: const EdgeInsets.all(16),
             child: Container(
               width: double.infinity,
               height: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.06),
@@ -447,7 +447,7 @@ class _PrintProductsContentState extends State<_PrintProductsContent> {
           final isOdd = i % 2 == 1;
           return TableRow(
             decoration: BoxDecoration(
-              color: isOdd ? Colors.grey.shade50 : Colors.white,
+              color: isOdd ? Theme.of(context).colorScheme.surfaceContainerLow : Theme.of(context).colorScheme.surface,
             ),
             children: [
               _dataCell('${i + 1}', cellStyle, align: TextAlign.center),

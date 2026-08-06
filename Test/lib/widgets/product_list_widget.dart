@@ -446,8 +446,8 @@ class _ProductListWidgetState extends State<ProductListWidget> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
       ),
       clipBehavior: Clip.hardEdge,
       child: SingleChildScrollView(
@@ -606,9 +606,9 @@ class _ProductListWidgetState extends State<ProductListWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: Theme.of(context).colorScheme.outline),
                             borderRadius: BorderRadius.circular(8),
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                           ),
                           child: Row(
                             children: [

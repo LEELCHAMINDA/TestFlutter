@@ -40,7 +40,7 @@ class _SidebarState extends State<Sidebar> {
     final isMobile = Responsive.isMobile(context);
 
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       width: isMobile ? double.infinity : null,
       child: ListView(
         padding: EdgeInsets.only(
@@ -310,8 +310,8 @@ class _UserSection extends StatelessWidget {
                 icon: Icon(_themeIcon(), size: 16),
                 label: Text(_themeLabel(), style: const TextStyle(fontSize: 13)),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey.shade700,
-                  side: BorderSide(color: Colors.grey.shade300),
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  side: BorderSide(color: Theme.of(context).colorScheme.outline),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
